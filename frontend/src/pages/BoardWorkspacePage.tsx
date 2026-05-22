@@ -15,7 +15,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { BoardListColumn } from "@/components/BoardListColumn";
 import { CardDialog } from "@/components/CardDialog";
-import { KanbanCard } from "@/components/KanbanCard";
+import { CardFace } from "@/components/KanbanCard";
 import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,12 +43,17 @@ export function BoardWorkspacePage() {
     reorderLists,
   } = useAppStore();
   const [listTitle, setListTitle] = useState("");
+  const [boardTitle, setBoardTitle] = useState("");
   const [activeDrag, setActiveDrag] = useState<DragState>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     if (boardId) void fetchBoard(Number(boardId));
   }, [boardId, fetchBoard]);
+
+  useEffect(() => {
+    if (activeBoard) setBoardTitle(activeBoard.title);
+  }, [activeBoard?.id, activeBoard?.title]);
 
   const filteredLists = useMemo(() => {
     if (!activeBoard) return [];
@@ -76,6 +81,12 @@ export function BoardWorkspacePage() {
     if (!listTitle.trim()) return;
     await createList(listTitle.trim());
     setListTitle("");
+  }
+
+  async function commitBoardTitle() {
+    if (activeBoard && boardTitle.trim() && boardTitle.trim() !== activeBoard.title) {
+      await updateBoard(activeBoard.id, { title: boardTitle.trim() });
+    }
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -138,8 +149,10 @@ export function BoardWorkspacePage() {
           <div className="min-w-0">
             <Input
               className="h-8 border-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
-              value={activeBoard.title}
-              onChange={(event) => void updateBoard(activeBoard.id, { title: event.target.value })}
+              value={boardTitle}
+              onChange={(event) => setBoardTitle(event.target.value)}
+              onBlur={commitBoardTitle}
+              onKeyDown={(event) => event.key === "Enter" && void commitBoardTitle()}
             />
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge className={activeBoard.is_public ? "bg-teal-50 text-teal-800" : "bg-slate-100 text-slate-700"}>
@@ -212,7 +225,11 @@ export function BoardWorkspacePage() {
               </SortableContext>
             </div>
             <DragOverlay>
-              {activeDrag?.type === "card" ? <div className="w-[260px] rotate-2"><KanbanCard card={activeDrag.card} compact /></div> : null}
+              {activeDrag?.type === "card" ? (
+                <div className="w-[260px] rotate-2 rounded-md border border-border bg-white p-3 shadow-board">
+                  <CardFace card={activeDrag.card} compact />
+                </div>
+              ) : null}
               {activeDrag?.type === "list" ? <div className="w-[272px] rounded-lg border border-border bg-slate-100 p-3 shadow-board">{activeDrag.list.title}</div> : null}
             </DragOverlay>
           </DndContext>

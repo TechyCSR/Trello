@@ -7,27 +7,12 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import type { Card } from "@/types";
 
-export function KanbanCard({ card, compact = false }: { card: Card; compact?: boolean }) {
-  const setSelectedCard = useAppStore((state) => state.setSelectedCard);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `card-${card.id}`,
-    data: { type: "card", card },
-  });
+export function CardFace({ card, compact = false }: { card: Card; compact?: boolean }) {
   const checklistTotal = card.checklists.reduce((sum, checklist) => sum + checklist.items.length, 0);
   const checklistDone = card.checklists.reduce((sum, checklist) => sum + checklist.items.filter((item) => item.is_done).length, 0);
 
   return (
-    <button
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "w-full rounded-md border border-border bg-white p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow-card",
-        isDragging && "opacity-40",
-      )}
-      onClick={() => setSelectedCard(card)}
-      {...attributes}
-      {...listeners}
-    >
+    <>
       <div className="mb-2 flex flex-wrap gap-1">
         {card.labels.map((label) => (
           <span key={label.id} className="h-2 w-12 rounded-full" style={{ backgroundColor: label.color }} />
@@ -60,6 +45,30 @@ export function KanbanCard({ card, compact = false }: { card: Card; compact?: bo
           ))}
         </div>
       </div>
+    </>
+  );
+}
+
+export function KanbanCard({ card, compact = false }: { card: Card; compact?: boolean }) {
+  const setSelectedCard = useAppStore((state) => state.setSelectedCard);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `card-${card.id}`,
+    data: { type: "card", card },
+  });
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        "w-full rounded-md border border-border bg-white p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow-card",
+        isDragging && "opacity-40",
+      )}
+      onClick={() => setSelectedCard(card)}
+      {...attributes}
+      {...listeners}
+    >
+      <CardFace card={card} compact={compact} />
     </button>
   );
 }
