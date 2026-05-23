@@ -179,7 +179,6 @@ export function BoardWorkspacePage() {
     boards,
     activeBoard,
     isLoadingBoard,
-    error,
     fetchBoards,
     fetchBoard,
     createList,
@@ -479,8 +478,6 @@ export function BoardWorkspacePage() {
 
   return (
     <main className="h-[calc(100vh-56px)] overflow-hidden bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] p-0 md:p-4">
-      {error && <div className="absolute left-4 right-4 top-16 z-50 rounded-md border border-red-300/50 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow-xl backdrop-blur">{error}</div>}
-
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           ref={workspaceRef}

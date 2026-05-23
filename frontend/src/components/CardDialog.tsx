@@ -6,13 +6,11 @@ import {
   Loader2,
   MessageSquare,
   Plus,
-  Search,
   Tag,
   Trash2,
-  UserPlus,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import { useAppStore } from "@/store/useAppStore";
-import type { Card, Checklist, Label, User } from "@/types";
+import type { Card, Checklist, Label } from "@/types";
 
 const LABEL_COLORS = ["#60a5fa", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#14b8a6", "#f97316", "#e879f9"];
 
@@ -42,9 +40,7 @@ function displayTime(value: string) {
 export function CardDialog() {
   const {
     activeBoard,
-    currentUser,
     selectedCard,
-    users,
     setSelectedCard,
     updateCard,
     deleteCard,
@@ -55,16 +51,13 @@ export function CardDialog() {
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [labelIds, setLabelIds] = useState<number[]>([]);
-  const [memberIds, setMemberIds] = useState<number[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [labelName, setLabelName] = useState("");
   const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
-  const [memberQuery, setMemberQuery] = useState("");
   const [commentText, setCommentText] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [isLabelCreatorOpen, setIsLabelCreatorOpen] = useState(false);
-  const memberSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!selectedCard) return;
@@ -72,7 +65,6 @@ export function CardDialog() {
     setDescription(selectedCard.description ?? "");
     setDueDate(selectedCard.due_date ? selectedCard.due_date.slice(0, 10) : "");
     setLabelIds(selectedCard.labels.map((label) => label.id));
-    setMemberIds(selectedCard.members.map((member) => member.id));
     setChecklists(selectedCard.checklists);
     setNewChecklistItem("");
     setCommentText("");
@@ -82,13 +74,12 @@ export function CardDialog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCard?.id]);
 
-  // Keep label/member selections in sync with server-side updates without resetting text edits.
+  // Keep label/checklist selections in sync with server-side updates without resetting text edits.
   useEffect(() => {
     if (!selectedCard) return;
     setLabelIds(selectedCard.labels.map((label) => label.id));
-    setMemberIds(selectedCard.members.map((member) => member.id));
     setChecklists(selectedCard.checklists);
-  }, [selectedCard?.labels, selectedCard?.members, selectedCard?.checklists]);
+  }, [selectedCard?.labels, selectedCard?.checklists]);
 
   const listTitle = useMemo(() => {
     if (!activeBoard || !selectedCard) return "";
@@ -99,21 +90,6 @@ export function CardDialog() {
     if (!activeBoard) return [];
     return activeBoard.labels.filter((label) => labelIds.includes(label.id));
   }, [activeBoard, labelIds]);
-
-  const allUsers = useMemo(() => {
-    const map = new Map<number, User>();
-    [...users, ...(activeBoard?.members ?? [])].forEach((user) => map.set(user.id, user));
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [users, activeBoard?.members]);
-
-  const selectedMembers = useMemo(() => allUsers.filter((user) => memberIds.includes(user.id)), [allUsers, memberIds]);
-
-  const filteredUsers = useMemo(() => {
-    const query = memberQuery.trim().toLowerCase();
-    const withoutSelf = allUsers.filter((user) => user.id !== currentUser?.id);
-    if (!query) return withoutSelf;
-    return withoutSelf.filter((user) => user.name.toLowerCase().includes(query));
-  }, [allUsers, memberQuery, currentUser?.id]);
 
   const firstChecklist = checklists[0];
   const checklistTotal = firstChecklist?.items.length ?? 0;
@@ -137,7 +113,6 @@ export function CardDialog() {
         description: description.trim() ? description.trim() : null,
         due_date: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
         label_ids: labelIds,
-        member_ids: memberIds,
         checklists,
       },
       "save",
@@ -165,12 +140,6 @@ export function CardDialog() {
     const next = labelIds.includes(label.id) ? labelIds.filter((id) => id !== label.id) : [...labelIds, label.id];
     setLabelIds(next);
     await persistPatch({ label_ids: next }, "label");
-  }
-
-  async function toggleMember(user: User) {
-    const next = memberIds.includes(user.id) ? memberIds.filter((id) => id !== user.id) : [...memberIds, user.id];
-    setMemberIds(next);
-    await persistPatch({ member_ids: next }, "member");
   }
 
   async function createChecklist() {
@@ -300,18 +269,6 @@ export function CardDialog() {
                 <CheckSquare className="h-4 w-4" />
                 Checklist
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-                onClick={() => {
-                  memberSearchRef.current?.focus();
-                  memberSearchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                }}
-              >
-                <UserPlus className="h-4 w-4" />
-                Members
-              </Button>
             </div>
 
             <section className="grid gap-3">
@@ -389,62 +346,6 @@ export function CardDialog() {
                   ))}
                 </div>
               )}
-            </section>
-
-            <section className="grid gap-3">
-              <div className="flex items-center gap-3 text-lg font-semibold text-slate-200">
-                <UserPlus className="h-5 w-5 text-slate-300" />
-                Members
-              </div>
-              <div className="ml-8 flex flex-wrap items-center gap-2">
-                {selectedMembers.map((member) => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    className="flex items-center gap-2 rounded-full border border-white/15 bg-black/15 py-1 pl-1 pr-3 text-sm font-semibold text-slate-100"
-                    onClick={() => void toggleMember(member)}
-                    disabled={isBusy}
-                  >
-                    <img src={resolveAvatarUrl(member)} alt={member.name} className="h-8 w-8 rounded-full object-cover" />
-                    {member.name}
-                    <X className="h-3.5 w-3.5 text-slate-400" />
-                  </button>
-                ))}
-              </div>
-              <div className="ml-8 max-w-xl rounded-xl border border-white/10 bg-black/15 p-3">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    ref={memberSearchRef}
-                    value={memberQuery}
-                    onChange={(event) => setMemberQuery(event.target.value)}
-                    placeholder="Search global users"
-                    className="border-white/15 bg-[#17191d] pl-9 text-slate-100"
-                  />
-                </div>
-                <div className="kanban-scroll mt-3 max-h-48 space-y-1 overflow-y-auto">
-                  {filteredUsers.map((user) => {
-                    const selected = memberIds.includes(user.id);
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        className={`flex w-full items-center justify-between rounded-lg px-2 py-2 text-left transition ${
-                          selected ? "bg-blue-500/20 text-blue-100" : "text-slate-200 hover:bg-white/10"
-                        }`}
-                        onClick={() => void toggleMember(user)}
-                        disabled={isBusy}
-                      >
-                        <span className="flex items-center gap-2">
-                          <img src={resolveAvatarUrl(user)} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
-                          <span className="font-medium">{user.name}</span>
-                        </span>
-                        <span className="text-xs text-slate-400">{selected ? "Assigned" : "Assign"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </section>
 
             <section className="grid gap-3">

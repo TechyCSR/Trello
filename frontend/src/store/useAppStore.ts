@@ -3,7 +3,26 @@ import axios from "axios";
 
 import { api, setApiUser } from "@/lib/api";
 import { positionBetween } from "@/lib/utils";
+import { showError } from "@/store/useToastStore";
 import type { BoardDetail, BoardList, BoardSummary, Card, Label, User, VisibilityFilter } from "@/types";
+
+function errorDetail(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === "string") return data;
+    if (data && typeof data === "object") {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail) && detail.length) {
+        const first = detail[0];
+        if (first && typeof first === "object" && "msg" in first) return String((first as { msg: unknown }).msg);
+      }
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return undefined;
+}
 
 type Filters = {
   boardQuery: string;
@@ -202,6 +221,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (axios.isCancel(error)) return;
       if (token !== boardsRequestToken) return;
       set({ error: "Unable to load boards. Start the FastAPI server and try again.", isLoadingBoards: false });
+      showError("Unable to load boards", errorDetail(error) ?? "Start the FastAPI server and try again.");
     }
   },
 
@@ -219,6 +239,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (axios.isCancel(error)) return;
       if (token !== boardRequestToken) return;
       set({ error: "Unable to load this board.", isLoadingBoard: false });
+      showError("Unable to load board", errorDetail(error));
     }
   },
 
@@ -244,8 +265,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ boards: snapshot.filter((board) => board.id !== boardId) });
     try {
       await api.delete(`/boards/${boardId}`);
-    } catch {
+    } catch (error) {
       set({ boards: snapshot, error: "Could not delete board." });
+      showError("Could not delete board", errorDetail(error));
     }
   },
 
@@ -266,8 +288,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { data } = await api.patch<BoardList>(`/lists/${listId}`, payload);
       const current = get().activeBoard ?? board;
       set({ activeBoard: { ...current, lists: sortLists(current.lists.map((list) => (list.id === listId ? data : list))) } });
-    } catch {
+    } catch (error) {
       set({ activeBoard: previous, error: "Could not update list." });
+      showError("Could not update list", errorDetail(error));
     }
   },
 
@@ -342,7 +365,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           },
         };
       });
-    } catch {
+    } catch (error) {
       const current = get().activeBoard ?? board;
       set({
         activeBoard: {
@@ -354,6 +377,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
         error: "Could not create card. Please try again.",
       });
+      showError("Could not create card", errorDetail(error));
     }
   },
 
@@ -391,8 +415,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         activeBoard: replaceCard(current, data),
         selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,
       });
-    } catch {
-      set({ error: "Could not save changes." });
+    } catch (error) {
+      // Revert optimistic change by refetching the board so UI matches DB.
+      const ref = get().activeBoard?.board_code ?? String(board.id);
+      void get().fetchBoard(ref);
+      showError("Could not save changes", errorDetail(error));
     }
   },
 
@@ -444,8 +471,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { data } = await api.patch<Card>("/cards/move", { card_id: cardId, target_list_id: targetListId, position });
       set({ activeBoard: replaceCard(get().activeBoard ?? board, data) });
-    } catch {
+    } catch (error) {
       set({ activeBoard: snapshot, error: "Move failed, restored previous card order." });
+      showError("Move failed", errorDetail(error) ?? "Restored previous card order.");
     }
   },
 

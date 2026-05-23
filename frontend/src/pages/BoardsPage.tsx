@@ -18,7 +18,6 @@ export function BoardsPage() {
     recentBoardIds,
     filters,
     isLoadingBoards,
-    error,
     setCurrentUser,
     fetchBoards,
     deleteBoard,
@@ -62,7 +61,6 @@ export function BoardsPage() {
     <main className="min-h-[calc(100vh-56px)] bg-[radial-gradient(circle_at_top,_#22283a_0%,_#181b24_55%,_#13161f_100%)] text-slate-100">
       <CreateBoardDialog />
       <div className="mx-auto w-full max-w-[1480px] px-3 py-5 sm:px-8 sm:py-8 lg:px-14">
-        {error && <div className="mx-auto mb-5 max-w-[1160px] rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>}
 
         {starredBoards.length > 0 && (
           <section className="mx-auto mb-8 max-w-[1160px] sm:mb-12">

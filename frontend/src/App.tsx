@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Navbar } from "@/components/Navbar";
+import { ToastViewport } from "@/components/ToastViewport";
 import { BoardsPage } from "@/pages/BoardsPage";
 import { BoardWorkspacePage } from "@/pages/BoardWorkspacePage";
 import { HomePage } from "@/pages/HomePage";
@@ -9,6 +10,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <ToastViewport />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/:username/boards" element={<BoardsPage />} />
