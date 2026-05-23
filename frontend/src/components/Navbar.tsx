@@ -61,10 +61,10 @@ export function Navbar() {
     navigate(`/${toUserSlug(user.name)}/boards`);
   }
 
-  function openBoard(boardId: number) {
+  function openBoard(boardCode: string) {
     setIsSearchOpen(false);
     setSearchQuery("");
-    navigate(`/${currentUserSlug}/boards/${boardId}`);
+    navigate(`/${currentUserSlug}/boards/${boardCode}`);
   }
 
   return (
@@ -96,7 +96,7 @@ export function Navbar() {
                   <button
                     key={board.id}
                     className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/10"
-                    onMouseDown={() => openBoard(board.id)}
+                    onMouseDown={() => openBoard(board.board_code)}
                   >
                     {board.title}
                   </button>

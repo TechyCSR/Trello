@@ -2,6 +2,25 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 
+def _to_base36(value: int) -> str:
+    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if value <= 0:
+        return "0"
+    chars: list[str] = []
+    while value:
+        value, remainder = divmod(value, 36)
+        chars.append(alphabet[remainder])
+    return "".join(reversed(chars))
+
+
+def _board_code_from_id(board_id: int) -> str:
+    modulus = 36**6
+    mixed = (board_id * 1299709 + 104729) % modulus
+    if mixed == 0:
+        mixed = board_id % modulus or board_id
+    return _to_base36(mixed).zfill(6)[-6:]
+
+
 def _queue_missing_columns(
     table_name: str,
     expected_columns: dict[str, str],
@@ -38,10 +57,14 @@ def ensure_runtime_schema(engine: Engine) -> None:
     _queue_missing_columns(
         "boards",
         {
+            "board_code": "VARCHAR(6)",
             "title": "VARCHAR(120)",
             "description": "TEXT",
             "color": "VARCHAR(32) NOT NULL DEFAULT 'sky'",
             "is_public": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "visibility": "VARCHAR(16) NOT NULL DEFAULT 'private'",
+            "share_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "share_token": "VARCHAR(32)",
             "owner_id": "INTEGER",
             "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "updated_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -291,8 +314,33 @@ def ensure_runtime_schema(engine: Engine) -> None:
         if "users" in post_tables:
             connection.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
         if "boards" in post_tables:
+            board_columns = {column["name"] for column in post_inspector.get_columns("boards")}
             connection.execute(text("UPDATE boards SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE boards SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))
+            if "visibility" in board_columns:
+                connection.execute(text("UPDATE boards SET visibility = CASE WHEN is_public THEN 'public' ELSE 'private' END WHERE visibility IS NULL OR visibility = ''"))
+            if "share_enabled" in board_columns:
+                connection.execute(text("UPDATE boards SET share_enabled = FALSE WHERE share_enabled IS NULL"))
+            if "board_code" in board_columns:
+                rows = connection.execute(text("SELECT id, board_code FROM boards ORDER BY id")).mappings().all()
+                used_codes: set[str] = set()
+                for row in rows:
+                    existing = (row["board_code"] or "").strip().upper()
+                    is_valid = len(existing) == 6 and existing.isalnum() and existing not in used_codes
+                    if is_valid:
+                        used_codes.add(existing)
+                        continue
+                    candidate = _board_code_from_id(int(row["id"]))
+                    while candidate in used_codes:
+                        candidate = _to_base36((int(candidate, 36) + 1) % (36**6)).zfill(6)[-6:]
+                    connection.execute(
+                        text("UPDATE boards SET board_code = :code WHERE id = :board_id"),
+                        {"code": candidate, "board_id": int(row["id"])},
+                    )
+                    used_codes.add(candidate)
+                connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_board_code ON boards (board_code)"))
+            if "share_token" in board_columns:
+                connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_share_token ON boards (share_token)"))
         if "lists" in post_tables:
             connection.execute(text("UPDATE lists SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE lists SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))

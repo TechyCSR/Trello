@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models import Board, BoardList, BoardMember, Card, CardLabel, CardMember, Checklist, User
 from app.routes.deps import current_user
 from app.schemas.board import BoardCreate, BoardDetail, BoardSummary, BoardUpdate
+from app.services.board_refs import assign_unique_board_code, assign_unique_share_token
 from app.services.security import ensure_board_access, ensure_board_editor
 from app.services.serializers import board_detail, board_summary
 
@@ -22,8 +23,17 @@ def board_options():
     )
 
 
-def get_board_loaded(db: Session, board_id: int) -> Board | None:
-    return db.query(Board).options(*board_options()).filter(Board.id == board_id).first()
+def get_board_loaded(db: Session, board_ref: str | int) -> Board | None:
+    query = db.query(Board).options(*board_options())
+    if isinstance(board_ref, int):
+        return query.filter(Board.id == board_ref).first()
+    normalized = board_ref.strip().upper()
+    board = query.filter(Board.board_code == normalized).first()
+    if board:
+        return board
+    if board_ref.isdigit():
+        return query.filter(Board.id == int(board_ref)).first()
+    return None
 
 
 @router.get("", response_model=list[BoardSummary])
@@ -78,10 +88,14 @@ def list_boards(
 @router.post("", response_model=BoardDetail, status_code=status.HTTP_201_CREATED)
 def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
     board = Board(
+        board_code=assign_unique_board_code(db),
         title=payload.title,
         description=payload.description,
         color=payload.color,
         is_public=payload.is_public,
+        visibility="public" if payload.is_public else "private",
+        share_enabled=False,
+        share_token=assign_unique_share_token(db),
         owner_id=user.id,
     )
     db.add(board)
@@ -94,19 +108,20 @@ def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User
     return board_detail(get_board_loaded(db, board.id))
 
 
-@router.get("/{board_id}", response_model=BoardDetail)
-def get_board(board_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
-    board = ensure_board_access(db, get_board_loaded(db, board_id), user)
+@router.get("/{board_ref}", response_model=BoardDetail)
+def get_board(board_ref: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    board = ensure_board_access(db, get_board_loaded(db, board_ref), user)
     return board_detail(board)
 
 
-@router.patch("/{board_id}", response_model=BoardDetail)
-def update_board(board_id: int, payload: BoardUpdate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
-    board = ensure_board_editor(db, get_board_loaded(db, board_id), user)
+@router.patch("/{board_ref}", response_model=BoardDetail)
+def update_board(board_ref: str, payload: BoardUpdate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user)
     for field in ("title", "description", "color", "is_public"):
         value = getattr(payload, field)
         if value is not None:
             setattr(board, field, value)
+    board.visibility = "public" if board.is_public else "private"
     if payload.member_ids is not None:
         db.query(BoardMember).filter(BoardMember.board_id == board.id, BoardMember.user_id != board.owner_id).delete()
         valid_users = db.query(User).filter(User.id.in_(set(payload.member_ids))).all()
@@ -117,9 +132,9 @@ def update_board(board_id: int, payload: BoardUpdate, db: Session = Depends(get_
     return board_detail(get_board_loaded(db, board.id))
 
 
-@router.delete("/{board_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_board(board_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
-    board = ensure_board_editor(db, db.get(Board, board_id), user)
+@router.delete("/{board_ref}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_board(board_ref: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
+    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user)
     if board.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner can delete a board")
     db.delete(board)

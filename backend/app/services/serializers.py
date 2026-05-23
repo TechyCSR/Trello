@@ -59,10 +59,13 @@ def board_summary(board: Board, list_count: int | None = None, card_count: int |
     )
     return {
         "id": board.id,
+        "board_code": board.board_code,
         "title": board.title,
         "description": board.description,
         "color": board.color,
         "is_public": board.is_public,
+        "visibility": board.visibility or ("public" if board.is_public else "private"),
+        "share_enabled": bool(board.share_enabled),
         "owner_id": board.owner_id,
         "created_at": board.created_at,
         "updated_at": board.updated_at,

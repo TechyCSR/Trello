@@ -32,7 +32,7 @@ type AppState = {
   toggleStarredBoard: (boardId: number) => void;
   recordRecentBoard: (boardId: number) => void;
   fetchBoards: () => Promise<void>;
-  fetchBoard: (boardId: number) => Promise<void>;
+  fetchBoard: (boardRef: string) => Promise<void>;
   createBoard: (title: string, isPublic: boolean, color?: string) => Promise<void>;
   setCreateBoardModalOpen: (open: boolean) => void;
   updateBoard: (boardId: number, payload: Partial<BoardSummary> & { member_ids?: number[] }) => Promise<void>;
@@ -197,15 +197,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  async fetchBoard(boardId) {
+  async fetchBoard(boardRef) {
     boardController?.abort();
     boardController = new AbortController();
     const token = ++boardRequestToken;
     set({ isLoadingBoard: true, error: null });
     try {
-      const { data } = await api.get<BoardDetail>(`/boards/${boardId}`, { signal: boardController.signal });
+      const { data } = await api.get<BoardDetail>(`/boards/${boardRef}`, { signal: boardController.signal });
       if (token !== boardRequestToken) return;
-      get().recordRecentBoard(boardId);
+      get().recordRecentBoard(data.id);
       set({ activeBoard: { ...data, lists: sortLists(data.lists) }, isLoadingBoard: false });
     } catch (error) {
       if (axios.isCancel(error)) return;

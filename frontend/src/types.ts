@@ -51,10 +51,13 @@ export type BoardList = {
 
 export type BoardSummary = {
   id: number;
+  board_code: string;
   title: string;
   description: string | null;
   color: string;
   is_public: boolean;
+  visibility: string;
+  share_enabled: boolean;
   owner_id: number;
   created_at: string;
   updated_at: string;

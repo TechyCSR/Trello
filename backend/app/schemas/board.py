@@ -23,10 +23,13 @@ class BoardUpdate(BaseModel):
 
 class BoardSummary(BaseModel):
     id: int
+    board_code: str
     title: str
     description: str | None
     color: str
     is_public: bool
+    visibility: str
+    share_enabled: bool
     owner_id: int
     created_at: datetime
     updated_at: datetime

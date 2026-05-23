@@ -44,7 +44,7 @@ export function BoardCard({
   return (
     <article className="group w-full overflow-hidden rounded-lg border border-white/10 bg-[#1f222a] shadow-sm transition hover:-translate-y-0.5 hover:border-white/20 sm:w-[248px]">
       <Link
-        to={`/${username}/boards/${board.id}`}
+        to={`/${username}/boards/${board.board_code}`}
         className={`block h-20 p-3 text-white ${background.imageUrl ? "" : `bg-gradient-to-br ${background.className}`}`}
         style={
           background.imageUrl

@@ -65,7 +65,7 @@ export function BoardWorkspacePage() {
   }, [users, username, currentUser, setCurrentUser, navigate]);
 
   useEffect(() => {
-    if (boardId) void fetchBoard(Number(boardId));
+    if (boardId) void fetchBoard(boardId);
   }, [boardId, fetchBoard]);
 
   useEffect(() => {
