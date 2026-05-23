@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { Loader2, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
 import { KanbanCard } from "@/components/KanbanCard";
@@ -22,6 +22,8 @@ export function BoardListColumn({
 }) {
   const { createCard, deleteList, updateList } = useAppStore();
   const [title, setTitle] = useState("");
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [editing, setEditing] = useState(false);
   const [listTitle, setListTitle] = useState(list.title);
   const cardIds = useMemo(() => cards.map((card) => `card-${card.id}`), [cards]);
@@ -36,9 +38,15 @@ export function BoardListColumn({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!title.trim()) return;
-    await createCard(list.id, title.trim());
-    setTitle("");
+    if (!title.trim() || isCreatingCard) return;
+    setIsCreatingCard(true);
+    try {
+      await createCard(list.id, title.trim());
+      setTitle("");
+      setIsComposerOpen(false);
+    } finally {
+      setIsCreatingCard(false);
+    }
   }
 
   async function commitTitle() {
@@ -90,19 +98,48 @@ export function BoardListColumn({
         </SortableContext>
         {!cards.length && <div className="rounded-xl border border-dashed border-white/30 bg-black/15 p-3 text-center text-sm text-slate-200">Drop cards here</div>}
       </div>
-      <form onSubmit={submit} className="border-t border-white/10 p-2">
-        <div className="flex items-center gap-2">
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Add a card"
-            className="h-9 border-white/20 bg-black/20 text-slate-100 placeholder:text-slate-300"
-          />
-          <Button type="submit" size="icon" aria-label="Add card" className="h-9 w-9 bg-white/15 text-slate-100 hover:bg-white/25">
+      <div className="border-t border-white/10 p-2">
+        {isComposerOpen ? (
+          <form onSubmit={submit} className="space-y-2">
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Enter a title..."
+              className="h-10 border-blue-300/80 bg-[#1f2330] text-slate-100 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-300"
+              disabled={isCreatingCard}
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <Button type="submit" className="h-9 bg-blue-500 px-3 text-slate-100 hover:bg-blue-400" disabled={isCreatingCard}>
+                {isCreatingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add card"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-slate-300 hover:bg-white/10 hover:text-slate-100"
+                onClick={() => {
+                  setIsComposerOpen(false);
+                  setTitle("");
+                }}
+                disabled={isCreatingCard}
+                aria-label="Cancel card creation"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+            onClick={() => setIsComposerOpen(true)}
+          >
             <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
+            Add a card
+          </button>
+        )}
+      </div>
     </section>
   );
 }

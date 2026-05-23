@@ -11,23 +11,16 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Bell,
   CheckCircle2,
   Circle,
-  Ellipsis,
-  Filter,
   Inbox,
   LayoutPanelLeft,
   Loader2,
   PanelLeftClose,
-  PanelRightClose,
   Plus,
-  Search,
   SquarePen,
-  Share2,
-  Star,
   SwitchCamera,
-  Users,
+  X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -37,7 +30,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { BoardListColumn } from "@/components/BoardListColumn";
 import { CardDialog } from "@/components/CardDialog";
 import { CardFace } from "@/components/KanbanCard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -148,11 +140,10 @@ function InboxCardRow({
           </button>
           <button
             type="button"
-            className={`min-w-0 flex-1 truncate text-left text-2xl ${
+            className={`min-w-0 flex-1 cursor-grab truncate text-left text-2xl active:cursor-grabbing ${
               isDone ? "text-slate-400 line-through" : "text-slate-100"
             }`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
+            onDoubleClick={(event) => {
               event.stopPropagation();
               onOpenDetails();
             }}
@@ -189,26 +180,23 @@ export function BoardWorkspacePage() {
     activeBoard,
     isLoadingBoard,
     error,
-    filters,
-    starredBoardIds,
     fetchBoards,
     fetchBoard,
     createList,
     createCard,
     updateBoard,
-    setFilters,
     moveCard,
     reorderLists,
     setCurrentUser,
     setSelectedCard,
-    toggleStarredBoard,
     updateCard,
   } = useAppStore();
   const [listTitle, setListTitle] = useState("");
   const [inboxCardTitle, setInboxCardTitle] = useState("");
   const [boardTitle, setBoardTitle] = useState("");
   const [inboxTitle, setInboxTitle] = useState("");
-  const [boardSectionTitle, setBoardSectionTitle] = useState("");
+  const [isEditingBoardTitle, setIsEditingBoardTitle] = useState(false);
+  const [isListComposerOpen, setIsListComposerOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<DragState>(null);
   const [isBoardSwitchOpen, setIsBoardSwitchOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(() => readBoolStorage(SHOW_INBOX_KEY, true));
@@ -221,12 +209,11 @@ export function BoardWorkspacePage() {
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [savingInboxCardId, setSavingInboxCardId] = useState<number | null>(null);
   const [isSavingBoardTitle, setIsSavingBoardTitle] = useState(false);
-  const [isSavingInboxTitle, setIsSavingInboxTitle] = useState(false);
-  const [isSavingBoardSectionTitle, setIsSavingBoardSectionTitle] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const inboxList = activeBoard?.lists.find((list) => list.is_inbox) ?? activeBoard?.lists?.[0] ?? null;
   const inboxDrop = useDroppable({
     id: "inbox-drop",
-    data: { type: "inbox-drop", listId: activeBoard?.lists?.[0]?.id ?? null },
+    data: { type: "inbox-drop", listId: inboxList?.id ?? null },
   });
 
   useEffect(() => {
@@ -253,7 +240,7 @@ export function BoardWorkspacePage() {
     if (!activeBoard) return;
     setBoardTitle(activeBoard.title);
     setInboxTitle(activeBoard.inbox_title || "Inbox");
-    setBoardSectionTitle(activeBoard.board_section_title || "Board");
+    setIsEditingBoardTitle(false);
     const raw = localStorage.getItem(`flowboard:inboxDone:${activeBoard.id}`);
     if (!raw) {
       setInboxDoneIds([]);
@@ -265,7 +252,7 @@ export function BoardWorkspacePage() {
     } catch {
       setInboxDoneIds([]);
     }
-  }, [activeBoard?.id, activeBoard?.title, activeBoard?.inbox_title, activeBoard?.board_section_title]);
+  }, [activeBoard?.id, activeBoard?.title, activeBoard?.inbox_title]);
 
   useEffect(() => {
     localStorage.setItem(SHOW_INBOX_KEY, String(showInbox));
@@ -302,36 +289,19 @@ export function BoardWorkspacePage() {
   }, []);
 
   const routeUserSlug = currentUser ? toUserSlug(currentUser.name) : username;
-  const isStarred = activeBoard ? starredBoardIds.includes(activeBoard.id) : false;
-  const inboxList = activeBoard?.lists.find((list) => list.is_inbox) ?? activeBoard?.lists?.[0] ?? null;
   const boardLists = useMemo(
     () => (activeBoard && inboxList ? activeBoard.lists.filter((list) => list.id !== inboxList.id) : activeBoard?.lists ?? []),
     [activeBoard, inboxList],
   );
 
-  const matchesCardFilters = (card: Card) => {
-    const now = new Date();
-    const week = new Date(now);
-    week.setDate(now.getDate() + 7);
-    const matchesQuery = card.title.toLowerCase().includes(filters.cardQuery.toLowerCase());
-    const matchesLabel = !filters.labelId || card.labels.some((label) => label.id === filters.labelId);
-    const matchesMember = !filters.memberId || card.members.some((member) => member.id === filters.memberId);
-    const due = card.due_date ? new Date(card.due_date) : null;
-    const matchesDue =
-      filters.due === "all" ||
-      (filters.due === "overdue" && due !== null && due < now) ||
-      (filters.due === "week" && due !== null && due <= week);
-    return matchesQuery && matchesLabel && matchesMember && matchesDue;
-  };
-
-  const filteredInboxCards = useMemo(() => (inboxList ? inboxList.cards.filter(matchesCardFilters) : []), [inboxList, filters]);
+  const filteredInboxCards = useMemo(() => inboxList?.cards ?? [], [inboxList]);
   const filteredBoardLists = useMemo(
     () =>
       boardLists.map((list) => ({
         ...list,
-        cards: list.cards.filter(matchesCardFilters),
+        cards: list.cards,
       })),
-    [boardLists, filters],
+    [boardLists],
   );
 
   async function submitList(event: FormEvent) {
@@ -341,6 +311,7 @@ export function BoardWorkspacePage() {
     try {
       await createList(listTitle.trim());
       setListTitle("");
+      setIsListComposerOpen(false);
     } finally {
       setIsCreatingList(false);
     }
@@ -397,32 +368,17 @@ export function BoardWorkspacePage() {
         await updateBoard(activeBoard.id, { title: boardTitle.trim() });
       } finally {
         setIsSavingBoardTitle(false);
+        setIsEditingBoardTitle(false);
       }
+      return;
     }
+    setBoardTitle(activeBoard?.title ?? boardTitle);
+    setIsEditingBoardTitle(false);
   }
 
-  async function commitInboxTitle() {
-    if (activeBoard && inboxTitle.trim() && inboxTitle.trim() !== activeBoard.inbox_title) {
-      if (isSavingInboxTitle) return;
-      setIsSavingInboxTitle(true);
-      try {
-        await updateBoard(activeBoard.id, { inbox_title: inboxTitle.trim() });
-      } finally {
-        setIsSavingInboxTitle(false);
-      }
-    }
-  }
-
-  async function commitBoardSectionTitle() {
-    if (activeBoard && boardSectionTitle.trim() && boardSectionTitle.trim() !== activeBoard.board_section_title) {
-      if (isSavingBoardSectionTitle) return;
-      setIsSavingBoardSectionTitle(true);
-      try {
-        await updateBoard(activeBoard.id, { board_section_title: boardSectionTitle.trim() });
-      } finally {
-        setIsSavingBoardSectionTitle(false);
-      }
-    }
+  function cancelBoardTitleEdit() {
+    setBoardTitle(activeBoard?.title ?? boardTitle);
+    setIsEditingBoardTitle(false);
   }
 
   function toggleInbox() {
@@ -479,7 +435,7 @@ export function BoardWorkspacePage() {
 
   if (isLoadingBoard || !activeBoard) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[#211d2c]">
+      <main className="grid min-h-[calc(100vh-56px)] place-items-center bg-[#211d2c]">
         <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-black/25 px-4 py-3 text-slate-100 shadow-sm">
           <Loader2 className="h-5 w-5 animate-spin text-sky-300" />
           Loading board
@@ -489,7 +445,7 @@ export function BoardWorkspacePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] px-4 pb-20 pt-4">
+    <main className="min-h-[calc(100vh-56px)] bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] px-4 pb-20 pt-4">
       {error && <div className="mb-3 rounded-md border border-red-300/50 bg-red-500/10 px-3 py-2 text-sm text-red-100">{error}</div>}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
@@ -507,14 +463,7 @@ export function BoardWorkspacePage() {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <Inbox className="h-5 w-5 text-sky-200" />
-                    <Input
-                      className="h-8 border-transparent bg-transparent px-0 text-3xl font-semibold text-slate-100 shadow-none focus-visible:ring-0"
-                      value={inboxTitle}
-                      onChange={(event) => setInboxTitle(event.target.value)}
-                      onBlur={commitInboxTitle}
-                      onKeyDown={(event) => event.key === "Enter" && void commitInboxTitle()}
-                      disabled={isSavingInboxTitle}
-                    />
+                    <h2 className="truncate text-2xl font-semibold text-slate-100">{inboxTitle || "Inbox"}</h2>
                   </div>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-100 hover:bg-white/10" onClick={toggleInbox} aria-label="Hide inbox section">
                     <PanelLeftClose className="h-4 w-4" />
@@ -603,99 +552,33 @@ export function BoardWorkspacePage() {
         <section className={`flex min-h-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#51306f]/90 text-slate-100 shadow-2xl transition-all duration-300 ${showBoard ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}>
           {showBoard && (
             <>
-              <header className="sticky top-0 z-20 border-b border-white/15 bg-[#563777] px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
+              <header className="sticky top-0 z-20 border-b border-white/15 bg-[#563777] px-4 py-3">
+                {isEditingBoardTitle ? (
+                  <div className="flex max-w-md items-center gap-2">
                     <Input
-                      className="h-8 border-transparent bg-transparent px-0 text-2xl font-semibold text-slate-100 shadow-none focus-visible:ring-0"
+                      className="h-11 rounded-lg border-blue-300/80 bg-[#1f2330] px-3 text-2xl font-semibold text-slate-100 shadow-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-blue-300"
                       value={boardTitle}
                       onChange={(event) => setBoardTitle(event.target.value)}
                       onBlur={commitBoardTitle}
-                      onKeyDown={(event) => event.key === "Enter" && void commitBoardTitle()}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") void commitBoardTitle();
+                        if (event.key === "Escape") cancelBoardTitleEdit();
+                      }}
                       disabled={isSavingBoardTitle}
+                      autoFocus
                     />
-                    <Input
-                      className="h-8 w-40 border-white/20 bg-black/20 text-sm text-slate-100 placeholder:text-slate-300"
-                      value={boardSectionTitle}
-                      onChange={(event) => setBoardSectionTitle(event.target.value)}
-                      onBlur={commitBoardSectionTitle}
-                      onKeyDown={(event) => event.key === "Enter" && void commitBoardSectionTitle()}
-                      disabled={isSavingBoardSectionTitle}
-                    />
+                    {isSavingBoardTitle && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-200" />}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative hidden sm:block">
-                      <Search className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-slate-300" />
-                      <Input
-                        className="h-8 w-56 border-white/20 bg-black/20 pl-8 text-slate-100 placeholder:text-slate-300"
-                        placeholder="Search cards"
-                        value={filters.cardQuery}
-                        onChange={(event) => setFilters({ cardQuery: event.target.value })}
-                      />
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-100 hover:bg-white/10" onClick={toggleBoard} aria-label="Hide board section">
-                      <PanelRightClose className="h-4 w-4" />
-                    </Button>
-                    <Badge className={activeBoard.is_public ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100" : "border-slate-200/30 bg-white/10 text-slate-100"}>
-                      {activeBoard.is_public ? "Public" : "Private"}
-                    </Badge>
-                    <Badge className="gap-1 border-white/25 bg-white/10 text-slate-100">
-                      <Users className="h-3 w-3" />
-                      {activeBoard.members.length}
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:bg-white/15" onClick={() => toggleStarredBoard(activeBoard.id)} aria-label="Toggle favorite board">
-                      <Star className={`h-4 w-4 ${isStarred ? "fill-yellow-300 text-yellow-300" : ""}`} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:bg-white/15" aria-label="Filter board">
-                      <Filter className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:bg-white/15" aria-label="Notifications">
-                      <Bell className="h-4 w-4" />
-                    </Button>
-                    <Button variant="secondary" className="h-9 border border-white/20 bg-white/10 text-slate-100 hover:bg-white/20" onClick={() => void navigator.clipboard?.writeText(window.location.href)}>
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:bg-white/15" aria-label="More board options">
-                      <Ellipsis className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <select className="h-8 rounded-md border border-white/25 bg-black/20 px-2 text-sm text-slate-100" value={filters.labelId ?? ""} onChange={(event) => setFilters({ labelId: event.target.value ? Number(event.target.value) : null })}>
-                    <option value="">All labels</option>
-                    {activeBoard.labels.map((label) => (
-                      <option key={label.id} value={label.id} className="text-slate-900">
-                        {label.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select className="h-8 rounded-md border border-white/25 bg-black/20 px-2 text-sm text-slate-100" value={filters.memberId ?? ""} onChange={(event) => setFilters({ memberId: event.target.value ? Number(event.target.value) : null })}>
-                    <option value="">All members</option>
-                    {activeBoard.members.map((member) => (
-                      <option key={member.id} value={member.id} className="text-slate-900">
-                        {member.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select className="h-8 rounded-md border border-white/25 bg-black/20 px-2 text-sm text-slate-100" value={filters.due} onChange={(event) => setFilters({ due: event.target.value as "all" | "overdue" | "week" })}>
-                    <option value="all">Any due date</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="week">Due this week</option>
-                  </select>
-                  <form onSubmit={submitList} className="ml-auto flex gap-2">
-                    <Input
-                      value={listTitle}
-                      onChange={(event) => setListTitle(event.target.value)}
-                      placeholder="New list"
-                      className="h-8 border-white/20 bg-black/20 text-slate-100 placeholder:text-slate-300"
-                      disabled={isCreatingList}
-                    />
-                    <Button type="submit" size="icon" className="h-8 w-8 bg-white/20 text-slate-100 hover:bg-white/30" aria-label="Create list" disabled={isCreatingList}>
-                      {isCreatingList ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    </Button>
-                  </form>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="min-h-11 max-w-md truncate rounded-lg px-3 text-left text-2xl font-semibold text-slate-100 transition hover:bg-black/15"
+                    onDoubleClick={() => setIsEditingBoardTitle(true)}
+                    aria-label="Edit board name"
+                  >
+                    {activeBoard.title}
+                  </button>
+                )}
               </header>
 
               <div className="kanban-scroll flex min-h-[calc(100vh-305px)] gap-3 overflow-x-auto p-3">
@@ -704,6 +587,48 @@ export function BoardWorkspacePage() {
                     <BoardListColumn key={list.id} list={list} cards={list.cards} accentClass={LIST_ACCENTS[index % LIST_ACCENTS.length]} />
                   ))}
                 </SortableContext>
+                <div className="w-[272px] shrink-0">
+                  {isListComposerOpen ? (
+                    <form onSubmit={submitList} className="rounded-2xl bg-[#111806] p-3 shadow-xl">
+                      <Input
+                        value={listTitle}
+                        onChange={(event) => setListTitle(event.target.value)}
+                        placeholder="Enter list name..."
+                        className="h-10 border-blue-300/80 bg-[#1f2330] text-slate-100 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-300"
+                        disabled={isCreatingList}
+                        autoFocus
+                      />
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button type="submit" className="h-10 bg-blue-500 px-4 text-slate-100 hover:bg-blue-400" disabled={isCreatingList}>
+                          {isCreatingList ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add list"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-slate-300 hover:bg-white/10 hover:text-slate-100"
+                          onClick={() => {
+                            setIsListComposerOpen(false);
+                            setListTitle("");
+                          }}
+                          disabled={isCreatingList}
+                          aria-label="Cancel list creation"
+                        >
+                          <X className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex h-14 w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/20 px-4 text-left text-lg font-semibold text-slate-100 shadow-xl transition hover:bg-white/25"
+                      onClick={() => setIsListComposerOpen(true)}
+                    >
+                      <Plus className="h-5 w-5" />
+                      Add another list
+                    </button>
+                  )}
+                </div>
               </div>
             </>
           )}
