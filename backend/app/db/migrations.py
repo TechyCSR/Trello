@@ -21,6 +21,13 @@ def _board_code_from_id(board_id: int) -> str:
     return _to_base36(mixed).zfill(6)[-6:]
 
 
+def _share_token_from_id(board_id: int) -> str:
+    seed = (board_id * 32452843 + 49979687) % (36**12)
+    part_a = _to_base36(seed).zfill(12)[-12:]
+    part_b = _to_base36(seed * 7 + board_id).zfill(12)[-12:]
+    return f"{part_a}{part_b}"[:24]
+
+
 def _queue_missing_columns(
     table_name: str,
     expected_columns: dict[str, str],
@@ -340,6 +347,22 @@ def ensure_runtime_schema(engine: Engine) -> None:
                     used_codes.add(candidate)
                 connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_board_code ON boards (board_code)"))
             if "share_token" in board_columns:
+                rows = connection.execute(text("SELECT id, share_token FROM boards ORDER BY id")).mappings().all()
+                used_tokens: set[str] = set()
+                for row in rows:
+                    existing = (row["share_token"] or "").strip().upper()
+                    is_valid = len(existing) >= 12 and existing not in used_tokens
+                    if is_valid:
+                        used_tokens.add(existing)
+                        continue
+                    token = _share_token_from_id(int(row["id"]))
+                    while token in used_tokens:
+                        token = _to_base36((int(token[:12], 36) + 1) % (36**12)).zfill(12)[-12:] + token[12:]
+                    connection.execute(
+                        text("UPDATE boards SET share_token = :token WHERE id = :board_id"),
+                        {"token": token, "board_id": int(row["id"])},
+                    )
+                    used_tokens.add(token)
                 connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_share_token ON boards (share_token)"))
         if "lists" in post_tables:
             connection.execute(text("UPDATE lists SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))

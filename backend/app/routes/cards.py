@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
 from app.models import Board, BoardList, BoardMember, Card, CardLabel, CardMember, Checklist, ChecklistItem, Label, User
-from app.routes.deps import current_user
+from app.routes.deps import board_share_token, current_user
 from app.schemas.card import CardCreate, CardMove, CardRead, CardSearchResult, CardUpdate
 from app.services.security import ensure_board_access, ensure_board_editor
 from app.services.serializers import card_read
@@ -64,9 +64,14 @@ def sync_checklists(db: Session, card: Card, payload: CardUpdate) -> None:
 
 
 @router.post("", response_model=CardRead, status_code=status.HTTP_201_CREATED)
-def create_card(payload: CardCreate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def create_card(
+    payload: CardCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
     board_list = db.query(BoardList).options(selectinload(BoardList.board)).filter(BoardList.id == payload.list_id).first()
-    board = ensure_board_editor(db, board_list.board if board_list else None, user)
+    board = ensure_board_editor(db, board_list.board if board_list else None, user, share_token)
     validate_card_relations(db, board, payload.label_ids, payload.member_ids)
     max_position = db.query(func.max(Card.position)).filter(Card.list_id == board_list.id, Card.archived.is_(False)).scalar() or 0
     card = Card(
@@ -89,11 +94,16 @@ def create_card(payload: CardCreate, db: Session = Depends(get_db), user: User =
 
 
 @router.patch("/move", response_model=CardRead)
-def move_card(payload: CardMove, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def move_card(
+    payload: CardMove,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
     card = card_loaded(db, payload.card_id)
-    source_board = ensure_board_editor(db, card.list.board if card else None, user)
+    source_board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
     target_list = db.query(BoardList).options(selectinload(BoardList.board)).filter(BoardList.id == payload.target_list_id).first()
-    target_board = ensure_board_editor(db, target_list.board if target_list else None, user)
+    target_board = ensure_board_editor(db, target_list.board if target_list else None, user, share_token)
     if source_board.id != target_board.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cards can only move inside the same board")
     card.list_id = target_list.id
@@ -103,9 +113,15 @@ def move_card(payload: CardMove, db: Session = Depends(get_db), user: User = Dep
 
 
 @router.patch("/{card_id}", response_model=CardRead)
-def update_card(card_id: int, payload: CardUpdate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def update_card(
+    card_id: int,
+    payload: CardUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
     card = card_loaded(db, card_id)
-    board = ensure_board_editor(db, card.list.board if card else None, user)
+    board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
     validate_card_relations(db, board, payload.label_ids, payload.member_ids)
     for field in ("title", "description", "due_date", "archived"):
         value = getattr(payload, field)
@@ -118,9 +134,14 @@ def update_card(card_id: int, payload: CardUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_card(card_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
+def delete_card(
+    card_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> None:
     card = card_loaded(db, card_id)
-    ensure_board_editor(db, card.list.board if card else None, user)
+    ensure_board_editor(db, card.list.board if card else None, user, share_token)
     db.delete(card)
     db.commit()
 
@@ -134,6 +155,7 @@ def search_cards(
     due: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
 ) -> list[dict]:
     query = (
         db.query(Card)
@@ -156,7 +178,7 @@ def search_cards(
         query = query.filter(and_(Card.due_date.is_not(None), Card.due_date <= now + timedelta(days=7)))
     results = []
     for card in query.order_by(Card.updated_at.desc()).limit(50).all():
-        board = ensure_board_access(db, card.list.board, user)
+        board = ensure_board_access(db, card.list.board, user, share_token)
         item = card_read(card)
         item["board_id"] = board.id
         item["board_title"] = board.title

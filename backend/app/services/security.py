@@ -14,23 +14,37 @@ def get_current_user(db: Session, x_user_id: int | None = Header(default=None, a
     return user
 
 
-def can_access_board(db: Session, board: Board, user: User) -> bool:
-    if board.is_public or board.owner_id == user.id:
+def has_share_token_access(board: Board, share_token: str | None) -> bool:
+    if not share_token:
+        return False
+    if not board.share_enabled:
+        return False
+    if not board.share_token:
+        return False
+    return board.share_token == share_token
+
+
+def can_access_board(db: Session, board: Board, user: User, share_token: str | None = None) -> bool:
+    if board.owner_id == user.id:
         return True
-    return db.query(BoardMember.board_id).filter_by(board_id=board.id, user_id=user.id).first() is not None
+    is_member = db.query(BoardMember.board_id).filter_by(board_id=board.id, user_id=user.id).first() is not None
+    if is_member:
+        return True
+    return has_share_token_access(board, share_token)
 
 
-def ensure_board_access(db: Session, board: Board | None, user: User) -> Board:
-    if not board or not can_access_board(db, board, user):
+def ensure_board_access(db: Session, board: Board | None, user: User, share_token: str | None = None) -> Board:
+    if not board or not can_access_board(db, board, user, share_token):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
     return board
 
 
-def ensure_board_editor(db: Session, board: Board | None, user: User) -> Board:
-    board = ensure_board_access(db, board, user)
+def ensure_board_editor(db: Session, board: Board | None, user: User, share_token: str | None = None) -> Board:
+    board = ensure_board_access(db, board, user, share_token)
     if board.owner_id == user.id:
         return board
     member = db.query(BoardMember).filter_by(board_id=board.id, user_id=user.id).first()
     if not member:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Board membership required")
+        if not has_share_token_access(board, share_token):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Board membership required")
     return board

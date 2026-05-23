@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
 from app.models import Board, BoardList, BoardMember, Card, CardLabel, CardMember, Checklist, User
-from app.routes.deps import current_user
+from app.routes.deps import board_share_token, current_user
 from app.schemas.board import BoardCreate, BoardDetail, BoardSummary, BoardUpdate
 from app.services.board_refs import assign_unique_board_code, assign_unique_share_token
 from app.services.security import ensure_board_access, ensure_board_editor
@@ -46,7 +46,7 @@ def list_boards(
     accessible_board_ids = (
         db.query(Board.id)
         .outerjoin(BoardMember, BoardMember.board_id == Board.id)
-        .filter(or_(Board.is_public.is_(True), Board.owner_id == user.id, BoardMember.user_id == user.id))
+        .filter(or_(Board.owner_id == user.id, BoardMember.user_id == user.id))
         .distinct()
         .subquery()
     )
@@ -78,9 +78,9 @@ def list_boards(
     if q:
         query = query.filter(Board.title.ilike(f"%{q}%"))
     if visibility == "public":
-        query = query.filter(Board.is_public.is_(True))
+        query = query.filter(Board.visibility == "public")
     if visibility == "private":
-        query = query.filter(Board.is_public.is_(False))
+        query = query.filter(Board.visibility == "private")
     rows = query.order_by(Board.updated_at.desc(), Board.id.desc()).all()
     return [board_summary(board, int(list_count), int(card_count)) for board, list_count, card_count in rows]
 
@@ -109,14 +109,25 @@ def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User
 
 
 @router.get("/{board_ref}", response_model=BoardDetail)
-def get_board(board_ref: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
-    board = ensure_board_access(db, get_board_loaded(db, board_ref), user)
+def get_board(
+    board_ref: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
+    board = ensure_board_access(db, get_board_loaded(db, board_ref), user, share_token)
     return board_detail(board)
 
 
 @router.patch("/{board_ref}", response_model=BoardDetail)
-def update_board(board_ref: str, payload: BoardUpdate, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
-    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user)
+def update_board(
+    board_ref: str,
+    payload: BoardUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
+    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user, share_token)
     for field in ("title", "description", "color", "is_public"):
         value = getattr(payload, field)
         if value is not None:
@@ -133,8 +144,13 @@ def update_board(board_ref: str, payload: BoardUpdate, db: Session = Depends(get
 
 
 @router.delete("/{board_ref}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_board(board_ref: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> None:
-    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user)
+def delete_board(
+    board_ref: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> None:
+    board = ensure_board_editor(db, get_board_loaded(db, board_ref), user, share_token)
     if board.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner can delete a board")
     db.delete(board)
