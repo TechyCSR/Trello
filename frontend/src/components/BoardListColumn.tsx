@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Loader2, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Loader2, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
 import { KanbanCard } from "@/components/KanbanCard";
@@ -51,9 +51,54 @@ export function BoardListColumn({
 
   async function commitTitle() {
     if (listTitle.trim() && listTitle.trim() !== list.title) {
-      await updateList(list.id, listTitle.trim());
+      await updateList(list.id, { title: listTitle.trim() });
     }
     setEditing(false);
+  }
+
+  function setCollapsed(is_collapsed: boolean) {
+    void updateList(list.id, { is_collapsed });
+  }
+
+  if (list.is_collapsed) {
+    return (
+      <section
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+        className={cn(
+          "flex h-fit w-14 shrink-0 flex-col items-center rounded-2xl border border-white/10 py-3 text-slate-100 shadow-xl",
+          accentClass,
+          isDragging && "opacity-50 ring-2 ring-white/35",
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <button
+          type="button"
+          className="grid h-8 w-8 place-items-center rounded-lg text-slate-200 transition hover:bg-white/10 hover:text-white"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setCollapsed(false);
+          }}
+          aria-label={`Expand ${list.title}`}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="mt-3 flex min-h-40 items-center justify-center text-sm font-semibold text-slate-100"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setCollapsed(false);
+          }}
+        >
+          <span className="rotate-180 whitespace-nowrap [writing-mode:vertical-rl]">{list.title}</span>
+        </button>
+        <span className="mt-2 text-xs font-semibold text-slate-300">{cards.length}</span>
+      </section>
+    );
   }
 
   return (
@@ -61,7 +106,7 @@ export function BoardListColumn({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex max-h-[calc(100vh-240px)] w-[272px] shrink-0 flex-col rounded-2xl border border-white/10 text-slate-100 shadow-xl",
+        "flex h-fit max-h-[calc(100vh-190px)] w-[320px] shrink-0 flex-col rounded-2xl border border-white/10 text-slate-100 shadow-xl",
         accentClass,
         isDragging && "opacity-50 ring-2 ring-white/35",
       )}
@@ -82,6 +127,19 @@ export function BoardListColumn({
           </button>
         )}
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Collapse list"
+            className="h-7 w-7 text-slate-200 hover:bg-white/10"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              setCollapsed(true);
+            }}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" aria-label="Delete list" className="h-7 w-7 text-slate-200 hover:bg-white/10 hover:text-red-200" onClick={() => void deleteList(list.id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -90,7 +148,7 @@ export function BoardListColumn({
           </Button>
         </div>
       </div>
-      <div ref={setDropRef} className="kanban-scroll flex-1 space-y-2 overflow-y-auto px-2 pb-2 pt-2">
+      <div ref={setDropRef} className="kanban-scroll max-h-[calc(100vh-325px)] min-h-12 space-y-2 overflow-y-auto px-2 pb-2 pt-2">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <KanbanCard key={card.id} card={card} />

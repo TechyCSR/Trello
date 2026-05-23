@@ -46,6 +46,7 @@ export type BoardList = {
   board_id: number;
   title: string;
   is_inbox: boolean;
+  is_collapsed: boolean;
   position: number;
   cards: Card[];
 };

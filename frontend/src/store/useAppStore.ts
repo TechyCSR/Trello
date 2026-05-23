@@ -38,7 +38,7 @@ type AppState = {
   updateBoard: (boardId: number, payload: Partial<BoardSummary> & { member_ids?: number[] }) => Promise<void>;
   deleteBoard: (boardId: number) => Promise<void>;
   createList: (title: string, isInbox?: boolean) => Promise<BoardList | null>;
-  updateList: (listId: number, title: string) => Promise<void>;
+  updateList: (listId: number, payload: { title?: string; is_collapsed?: boolean }) => Promise<void>;
   deleteList: (listId: number) => Promise<void>;
   reorderLists: (activeId: number, overId: number) => Promise<void>;
   createCard: (listId: number, title: string) => Promise<void>;
@@ -103,6 +103,12 @@ function sortLists(lists: BoardList[]) {
 }
 
 function replaceCard(board: BoardDetail, card: Card) {
+  if (card.archived) {
+    return {
+      ...board,
+      lists: board.lists.map((list) => ({ ...list, cards: list.cards.filter((item) => item.id !== card.id) })),
+    };
+  }
   return {
     ...board,
     lists: board.lists.map((list) => ({
@@ -249,11 +255,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     return data;
   },
 
-  async updateList(listId, title) {
+  async updateList(listId, payload) {
     const board = get().activeBoard;
     if (!board) return;
-    set({ activeBoard: { ...board, lists: board.lists.map((list) => (list.id === listId ? { ...list, title } : list)) } });
-    await api.patch(`/lists/${listId}`, { title });
+    const previous = board;
+    set({ activeBoard: { ...board, lists: board.lists.map((list) => (list.id === listId ? { ...list, ...payload } : list)) } });
+    try {
+      const { data } = await api.patch<BoardList>(`/lists/${listId}`, payload);
+      const current = get().activeBoard ?? board;
+      set({ activeBoard: { ...current, lists: sortLists(current.lists.map((list) => (list.id === listId ? data : list))) } });
+    } catch {
+      set({ activeBoard: previous, error: "Could not update list." });
+    }
   },
 
   async deleteList(listId) {

@@ -100,6 +100,7 @@ def ensure_runtime_schema(engine: Engine) -> None:
             "board_id": "INTEGER",
             "title": "VARCHAR(120)",
             "is_inbox": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "is_collapsed": "BOOLEAN NOT NULL DEFAULT FALSE",
             "position": "NUMERIC(12, 4) NOT NULL DEFAULT 0",
             "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "updated_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -392,6 +393,8 @@ def ensure_runtime_schema(engine: Engine) -> None:
                         """
                     )
                 )
+            if "is_collapsed" in list_columns:
+                connection.execute(text("UPDATE lists SET is_collapsed = FALSE WHERE is_collapsed IS NULL"))
                 connection.execute(
                     text(
                         """

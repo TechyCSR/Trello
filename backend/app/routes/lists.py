@@ -72,6 +72,8 @@ def update_list(
     ensure_board_editor(db, board_list.board if board_list else None, user, share_token)
     if payload.title is not None:
         board_list.title = payload.title
+    if payload.is_collapsed is not None:
+        board_list.is_collapsed = payload.is_collapsed
     db.commit()
     return list_read(list_loaded(db, list_id))
 

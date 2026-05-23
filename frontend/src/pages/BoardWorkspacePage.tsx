@@ -143,7 +143,7 @@ function InboxCardRow({
             className={`min-w-0 flex-1 cursor-grab truncate text-left text-2xl active:cursor-grabbing ${
               isDone ? "text-slate-400 line-through" : "text-slate-100"
             }`}
-            onDoubleClick={(event) => {
+            onClick={(event) => {
               event.stopPropagation();
               onOpenDetails();
             }}
@@ -445,16 +445,16 @@ export function BoardWorkspacePage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-56px)] bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] px-4 pb-20 pt-4">
-      {error && <div className="mb-3 rounded-md border border-red-300/50 bg-red-500/10 px-3 py-2 text-sm text-red-100">{error}</div>}
+    <main className="h-[calc(100vh-56px)] overflow-hidden bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] p-4">
+      {error && <div className="absolute left-4 right-4 top-16 z-50 rounded-md border border-red-300/50 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow-xl backdrop-blur">{error}</div>}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           ref={workspaceRef}
-          className="relative flex min-h-[calc(100vh-220px)] gap-3"
+          className="relative flex h-full gap-3"
         >
         <section
-          className={`flex min-h-full flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0f2a57]/95 text-slate-100 shadow-2xl transition-all duration-300 ${showInbox ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
+          className={`flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-[#0f2a57]/95 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-black/20 transition-all duration-300 ${showInbox ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
           style={showInbox && showBoard ? { width: `${leftPanelWidth}%` } : showInbox ? { width: "100%" } : undefined}
         >
           {showInbox && (
@@ -541,22 +541,25 @@ export function BoardWorkspacePage() {
 
         {showInbox && showBoard && (
           <button
-            className="hidden w-2 shrink-0 cursor-col-resize rounded-full bg-white/30 transition hover:bg-white/55 lg:block"
+            className="group hidden w-3 shrink-0 cursor-col-resize rounded-full border border-white/15 bg-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_12px_28px_rgba(0,0,0,0.25)] transition hover:bg-white/40 lg:grid lg:place-items-center"
             aria-label="Resize panels"
             onMouseDown={() => {
               isResizingRef.current = true;
             }}
-          />
+          >
+            <span className="h-24 w-1 rounded-full bg-white/45 transition group-hover:bg-white/70" />
+          </button>
         )}
 
-        <section className={`flex min-h-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#51306f]/90 text-slate-100 shadow-2xl transition-all duration-300 ${showBoard ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}>
+        <section className={`flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/20 bg-[#51306f]/90 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-black/20 transition-all duration-300 ${showBoard ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}>
           {showBoard && (
             <>
               <header className="sticky top-0 z-20 border-b border-white/15 bg-[#563777] px-4 py-3">
                 {isEditingBoardTitle ? (
                   <div className="flex max-w-md items-center gap-2">
                     <Input
-                      className="h-11 rounded-lg border-blue-300/80 bg-[#1f2330] px-3 text-2xl font-semibold text-slate-100 shadow-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-blue-300"
+                      className="h-11 min-w-28 max-w-[min(520px,70vw)] rounded-lg border-blue-300/80 bg-[#1f2330] px-3 text-2xl font-semibold text-slate-100 shadow-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-blue-300"
+                      style={{ width: `${Math.min(Math.max(boardTitle.length + 2, 8), 32)}ch` }}
                       value={boardTitle}
                       onChange={(event) => setBoardTitle(event.target.value)}
                       onBlur={commitBoardTitle}
@@ -581,13 +584,13 @@ export function BoardWorkspacePage() {
                 )}
               </header>
 
-              <div className="kanban-scroll flex min-h-[calc(100vh-305px)] gap-3 overflow-x-auto p-3">
+              <div className="kanban-scroll flex flex-1 items-start gap-4 overflow-x-auto overflow-y-auto p-4 pb-24">
                 <SortableContext items={filteredBoardLists.map((list) => `list-${list.id}`)} strategy={horizontalListSortingStrategy}>
                   {filteredBoardLists.map((list, index) => (
                     <BoardListColumn key={list.id} list={list} cards={list.cards} accentClass={LIST_ACCENTS[index % LIST_ACCENTS.length]} />
                   ))}
                 </SortableContext>
-                <div className="w-[272px] shrink-0">
+                <div className="w-[320px] shrink-0">
                   {isListComposerOpen ? (
                     <form onSubmit={submitList} className="rounded-2xl bg-[#111806] p-3 shadow-xl">
                       <Input

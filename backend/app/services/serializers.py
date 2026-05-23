@@ -48,6 +48,7 @@ def list_read(board_list: BoardList) -> dict:
         "board_id": board_list.board_id,
         "title": board_list.title,
         "is_inbox": bool(getattr(board_list, "is_inbox", False)),
+        "is_collapsed": bool(getattr(board_list, "is_collapsed", False)),
         "position": float(board_list.position),
         "cards": [card_read(card) for card in board_list.cards if not card.archived],
     }

@@ -18,7 +18,7 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
           <span key={label.id} className="h-2 w-12 rounded-full" style={{ backgroundColor: label.color }} />
         ))}
       </div>
-      <div className="line-clamp-3 text-sm font-medium text-slate-100">{card.title}</div>
+      <div className="whitespace-pre-wrap break-words text-sm font-medium text-slate-100">{card.title}</div>
       {!compact && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
           {card.due_date && (

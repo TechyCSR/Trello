@@ -52,6 +52,7 @@ class ListRead(BaseModel):
     board_id: int
     title: str
     is_inbox: bool = False
+    is_collapsed: bool = False
     position: float
     cards: list[CardRead] = []
 
@@ -64,6 +65,7 @@ class ListCreate(BaseModel):
 
 class ListUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
+    is_collapsed: bool | None = None
 
 
 class ListReorderItem(BaseModel):

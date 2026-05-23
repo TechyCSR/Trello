@@ -123,10 +123,10 @@ def update_card(
     card = card_loaded(db, card_id)
     board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
     validate_card_relations(db, board, payload.label_ids, payload.member_ids)
+    changed_fields = payload.model_fields_set
     for field in ("title", "description", "due_date", "archived"):
-        value = getattr(payload, field)
-        if value is not None:
-            setattr(card, field, value)
+        if field in changed_fields:
+            setattr(card, field, getattr(payload, field))
     sync_card_links(db, card, payload.label_ids, payload.member_ids)
     sync_checklists(db, card, payload)
     db.commit()
