@@ -12,7 +12,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,7 @@ export function CardDialog() {
   const [commentText, setCommentText] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [isLabelCreatorOpen, setIsLabelCreatorOpen] = useState(false);
+  const memberSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!selectedCard) return;
@@ -77,7 +78,17 @@ export function CardDialog() {
     setCommentText("");
     setPendingAction(null);
     setIsLabelCreatorOpen(false);
-  }, [selectedCard]);
+    // Reset local form only when a different card is opened to avoid clobbering in-progress edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCard?.id]);
+
+  // Keep label/member selections in sync with server-side updates without resetting text edits.
+  useEffect(() => {
+    if (!selectedCard) return;
+    setLabelIds(selectedCard.labels.map((label) => label.id));
+    setMemberIds(selectedCard.members.map((member) => member.id));
+    setChecklists(selectedCard.checklists);
+  }, [selectedCard?.labels, selectedCard?.members, selectedCard?.checklists]);
 
   const listTitle = useMemo(() => {
     if (!activeBoard || !selectedCard) return "";
@@ -99,9 +110,10 @@ export function CardDialog() {
 
   const filteredUsers = useMemo(() => {
     const query = memberQuery.trim().toLowerCase();
-    if (!query) return allUsers;
-    return allUsers.filter((user) => user.name.toLowerCase().includes(query));
-  }, [allUsers, memberQuery]);
+    const withoutSelf = allUsers.filter((user) => user.id !== currentUser?.id);
+    if (!query) return withoutSelf;
+    return withoutSelf.filter((user) => user.name.toLowerCase().includes(query));
+  }, [allUsers, memberQuery, currentUser?.id]);
 
   const firstChecklist = checklists[0];
   const checklistTotal = firstChecklist?.items.length ?? 0;
@@ -111,14 +123,9 @@ export function CardDialog() {
 
   if (!activeBoard || !selectedCard) return null;
 
-  async function persistPatch(payload: Parameters<typeof updateCard>[1], action: string) {
-    if (pendingAction) return;
-    setPendingAction(action);
-    try {
-      await updateCard(selectedCard!.id, payload);
-    } finally {
-      setPendingAction(null);
-    }
+  async function persistPatch(payload: Parameters<typeof updateCard>[1], _action: string) {
+    // Fire-and-forget: store performs optimistic update so UI stays snappy.
+    void updateCard(selectedCard!.id, payload);
   }
 
   async function saveCard(event?: FormEvent) {
@@ -243,7 +250,26 @@ export function CardDialog() {
   }
 
   return (
-    <Dialog open={Boolean(selectedCard)} onOpenChange={(open) => !open && setSelectedCard(null)}>
+    <Dialog
+      open={Boolean(selectedCard)}
+      onOpenChange={(open) => {
+        if (open) return;
+        const nextTitle = title.trim();
+        const nextDesc = description.trim() ? description.trim() : null;
+        const titleChanged = nextTitle && nextTitle !== selectedCard?.title;
+        const descChanged = (selectedCard?.description ?? null) !== nextDesc;
+        if (titleChanged || descChanged) {
+          void persistPatch(
+            {
+              ...(titleChanged ? { title: nextTitle } : {}),
+              ...(descChanged ? { description: nextDesc } : {}),
+            },
+            "save",
+          );
+        }
+        setSelectedCard(null);
+      }}
+    >
       <DialogContent className="max-h-[86vh] w-[min(1180px,calc(100vw-32px))] overflow-hidden border-white/10 bg-[#202226] p-0 text-slate-100 shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 bg-[#17191d] px-6 py-4">
           <Badge className="border-white/10 bg-yellow-500/20 text-yellow-100">{listTitle}</Badge>
@@ -266,19 +292,23 @@ export function CardDialog() {
             </div>
 
             <div className="ml-9 flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={() => setIsLabelCreatorOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Add
-              </Button>
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={() => setIsLabelCreatorOpen(true)}>
+              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={() => setIsLabelCreatorOpen((value) => !value)}>
                 <Tag className="h-4 w-4" />
                 Labels
               </Button>
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={createChecklist}>
+              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={createChecklist} disabled={Boolean(firstChecklist)}>
                 <CheckSquare className="h-4 w-4" />
                 Checklist
               </Button>
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                onClick={() => {
+                  memberSearchRef.current?.focus();
+                  memberSearchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+              >
                 <UserPlus className="h-4 w-4" />
                 Members
               </Button>
@@ -302,14 +332,6 @@ export function CardDialog() {
                     {label.name}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className="grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-slate-200 transition hover:bg-white/10"
-                  onClick={() => setIsLabelCreatorOpen((value) => !value)}
-                  aria-label="Add label"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
               </div>
               {isLabelCreatorOpen && (
                 <div className="ml-8 grid max-w-md gap-3 rounded-xl border border-white/10 bg-black/15 p-3">
@@ -393,6 +415,7 @@ export function CardDialog() {
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
+                    ref={memberSearchRef}
                     value={memberQuery}
                     onChange={(event) => setMemberQuery(event.target.value)}
                     placeholder="Search global users"
@@ -432,8 +455,13 @@ export function CardDialog() {
               <Input
                 type="date"
                 value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                className="ml-8 h-10 max-w-xs border-white/15 bg-black/20 text-slate-100"
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDueDate(next);
+                  void persistPatch({ due_date: next ? new Date(`${next}T12:00:00`).toISOString() : null }, "due");
+                }}
+                style={{ colorScheme: "dark" }}
+                className="ml-8 h-10 max-w-xs border-white/15 bg-black/20 text-slate-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
                 disabled={isBusy}
               />
             </section>
@@ -446,8 +474,14 @@ export function CardDialog() {
               <Textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
+                onBlur={() => {
+                  const next = description.trim() ? description.trim() : null;
+                  if ((selectedCard?.description ?? null) !== next) {
+                    void persistPatch({ description: next }, "description");
+                  }
+                }}
                 placeholder="Add a more detailed description..."
-                className="ml-8 min-h-24 border-white/15 bg-black/15 text-slate-100 placeholder:text-slate-400"
+                className="ml-8 mr-2 block min-h-24 max-w-[calc(100%-2.5rem)] resize-y border-white/15 bg-black/15 text-slate-100 placeholder:text-slate-400"
                 disabled={isBusy}
               />
             </section>

@@ -45,12 +45,28 @@ def add_activity(db: Session, board_id: int, card_id: int | None, user_id: int |
 
 def sync_card_links(db: Session, card: Card, label_ids: list[int] | None, member_ids: list[int] | None) -> None:
     if label_ids is not None:
-        db.query(CardLabel).filter(CardLabel.card_id == card.id).delete()
-        for label_id in dict.fromkeys(label_ids):
+        desired = list(dict.fromkeys(label_ids))
+        existing = {link.label_id for link in card.label_links}
+        to_remove = existing - set(desired)
+        to_add = [lid for lid in desired if lid not in existing]
+        if to_remove:
+            db.query(CardLabel).filter(
+                CardLabel.card_id == card.id, CardLabel.label_id.in_(to_remove)
+            ).delete(synchronize_session=False)
+            db.expire(card, ["label_links"])
+        for label_id in to_add:
             db.add(CardLabel(card_id=card.id, label_id=label_id))
     if member_ids is not None:
-        db.query(CardMember).filter(CardMember.card_id == card.id).delete()
-        for user_id in dict.fromkeys(member_ids):
+        desired_m = list(dict.fromkeys(member_ids))
+        existing_m = {link.user_id for link in card.member_links}
+        to_remove_m = existing_m - set(desired_m)
+        to_add_m = [uid for uid in desired_m if uid not in existing_m]
+        if to_remove_m:
+            db.query(CardMember).filter(
+                CardMember.card_id == card.id, CardMember.user_id.in_(to_remove_m)
+            ).delete(synchronize_session=False)
+            db.expire(card, ["member_links"])
+        for user_id in to_add_m:
             db.add(CardMember(card_id=card.id, user_id=user_id))
 
 
@@ -137,11 +153,20 @@ def update_card(
             setattr(card, field, getattr(payload, field))
             if old_value != getattr(payload, field):
                 activity_details.append(f"updated {field.replace('_', ' ')}")
+    prev_label_ids = {link.label_id for link in card.label_links}
+    prev_member_ids = {link.user_id for link in card.member_links}
     sync_card_links(db, card, payload.label_ids, payload.member_ids)
-    if payload.label_ids is not None:
+    if payload.label_ids is not None and set(payload.label_ids) != prev_label_ids:
         activity_details.append("updated labels")
-    if payload.member_ids is not None:
-        activity_details.append("updated members")
+    if payload.member_ids is not None and set(payload.member_ids) != prev_member_ids:
+        added = set(payload.member_ids) - prev_member_ids
+        removed = prev_member_ids - set(payload.member_ids)
+        if added:
+            names = [u.name for u in db.query(User).filter(User.id.in_(added)).all()]
+            activity_details.append(f"assigned {', '.join(names)}")
+        if removed:
+            names = [u.name for u in db.query(User).filter(User.id.in_(removed)).all()]
+            activity_details.append(f"unassigned {', '.join(names)}")
     sync_checklists(db, card, payload)
     if payload.checklists is not None:
         activity_details.append("updated checklist")

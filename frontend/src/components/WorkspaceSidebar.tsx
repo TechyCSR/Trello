@@ -1,14 +1,27 @@
 import { Bell, Inbox, Lightbulb, Plus, Zap } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import type { BoardDetail } from "@/types";
+
+type AssignedCard = {
+  id: number;
+  title: string;
+  due_date: string | null;
+  board_id: number;
+  board_title: string;
+  list_title: string;
+};
 
 export function WorkspaceSidebar({ board }: { board: BoardDetail }) {
   const { createCard, currentUser } = useAppStore();
   const [title, setTitle] = useState("");
+  const [assigned, setAssigned] = useState<AssignedCard[]>([]);
+  const navigate = useNavigate();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -18,7 +31,24 @@ export function WorkspaceSidebar({ board }: { board: BoardDetail }) {
     setTitle("");
   }
 
-  const myCards = board.lists.flatMap((list) => list.cards).filter((card) => card.members.some((member) => member.id === currentUser?.id));
+  useEffect(() => {
+    if (!currentUser) {
+      setAssigned([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<AssignedCard[]>("/cards/search", { params: { member_id: currentUser.id } })
+      .then(({ data }) => {
+        if (!cancelled) setAssigned(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAssigned([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, board.id, board.updated_at]);
 
   return (
     <aside className="sticky top-16 flex max-h-[calc(100vh-72px)] flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-white p-4 shadow-sm lg:w-72 lg:shrink-0">
@@ -43,16 +73,24 @@ export function WorkspaceSidebar({ board }: { board: BoardDetail }) {
       <section className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Bell className="h-4 w-4 text-teal-700" />
-          My tasks
+          Tasks assigned to you
         </div>
         <div className="space-y-2">
-          {myCards.slice(0, 5).map((card) => (
-            <div key={card.id} className="rounded-md border border-border bg-slate-50 p-2 text-sm">
+          {assigned.slice(0, 8).map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => navigate(`/boards/${card.board_id}`)}
+              className="w-full rounded-md border border-border bg-slate-50 p-2 text-left text-sm transition hover:bg-slate-100"
+            >
               <div className="line-clamp-2 font-medium">{card.title}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{card.due_date ? new Date(card.due_date).toLocaleDateString() : "No due date"}</div>
-            </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span className="truncate">{card.board_title} • {card.list_title}</span>
+                <span className="shrink-0">{card.due_date ? new Date(card.due_date).toLocaleDateString() : ""}</span>
+              </div>
+            </button>
           ))}
-          {!myCards.length && <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">No assigned cards yet.</div>}
+          {!assigned.length && <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">No assigned cards yet.</div>}
         </div>
       </section>
 

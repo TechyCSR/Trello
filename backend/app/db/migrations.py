@@ -325,6 +325,16 @@ def ensure_runtime_schema(engine: Engine) -> None:
                 )
             )
 
+        # Relax NOT NULL on legacy checklist_items columns (`text`, `completed`)
+        # so new ORM inserts (which only populate `title`/`is_done`) don't fail.
+        if dialect == "postgresql" and "checklist_items" in post_tables:
+            if "text" in checklist_item_columns:
+                connection.execute(text("ALTER TABLE checklist_items ALTER COLUMN text DROP NOT NULL"))
+                connection.execute(text("ALTER TABLE checklist_items ALTER COLUMN text SET DEFAULT ''"))
+            if "completed" in checklist_item_columns:
+                connection.execute(text("ALTER TABLE checklist_items ALTER COLUMN completed DROP NOT NULL"))
+                connection.execute(text("ALTER TABLE checklist_items ALTER COLUMN completed SET DEFAULT FALSE"))
+
         if {"labels", "card_labels", "cards", "lists"} <= post_tables:
             label_columns = {column["name"] for column in post_inspector.get_columns("labels")}
             if "board_id" in label_columns:

@@ -360,12 +360,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   async updateCard(cardId, payload) {
     const board = get().activeBoard;
     if (!board) return;
-    const { data } = await api.patch<Card>(`/cards/${cardId}`, payload);
-    const nextBoard = replaceCard(board, data);
-    set({
-      activeBoard: nextBoard,
-      selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,
-    });
+    // Optimistic update for snappy UX
+    const existing = board.lists.flatMap((list) => list.cards).find((card) => card.id === cardId);
+    if (existing) {
+      const labels = payload.label_ids
+        ? board.labels.filter((label) => payload.label_ids!.includes(label.id))
+        : existing.labels;
+      const members = payload.member_ids
+        ? get().users.filter((user) => payload.member_ids!.includes(user.id))
+        : existing.members;
+      const optimistic: Card = {
+        ...existing,
+        ...("title" in payload ? { title: payload.title as string } : {}),
+        ...("description" in payload ? { description: payload.description as string | null } : {}),
+        ...("due_date" in payload ? { due_date: payload.due_date as string | null } : {}),
+        ...("archived" in payload ? { archived: payload.archived as boolean } : {}),
+        ...("checklists" in payload ? { checklists: payload.checklists as Card["checklists"] } : {}),
+        labels,
+        members,
+      };
+      set({
+        activeBoard: replaceCard(board, optimistic),
+        selectedCard: get().selectedCard?.id === cardId ? optimistic : get().selectedCard,
+      });
+    }
+    try {
+      const { data } = await api.patch<Card>(`/cards/${cardId}`, payload);
+      const current = get().activeBoard ?? board;
+      set({
+        activeBoard: replaceCard(current, data),
+        selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,
+      });
+    } catch {
+      set({ error: "Could not save changes." });
+    }
   },
 
   async addCardComment(cardId, detail) {
