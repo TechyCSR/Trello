@@ -153,6 +153,20 @@ def update_card(
             setattr(card, field, getattr(payload, field))
             if old_value != getattr(payload, field):
                 activity_details.append(f"updated {field.replace('_', ' ')}")
+    if "cover_color" in changed_fields or "cover_image_url" in changed_fields:
+        prev_color = getattr(card, "cover_color", None)
+        prev_image = getattr(card, "cover_image_url", None)
+        if "cover_color" in changed_fields:
+            card.cover_color = payload.cover_color
+        if "cover_image_url" in changed_fields:
+            card.cover_image_url = payload.cover_image_url
+        new_color = card.cover_color
+        new_image = card.cover_image_url
+        if (prev_color, prev_image) != (new_color, new_image):
+            if new_image or new_color:
+                activity_details.append("updated cover")
+            else:
+                activity_details.append("removed cover")
     prev_label_ids = {link.label_id for link in card.label_links}
     prev_member_ids = {link.user_id for link in card.member_links}
     sync_card_links(db, card, payload.label_ids, payload.member_ids)

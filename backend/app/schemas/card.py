@@ -48,6 +48,8 @@ class CardRead(BaseModel):
     description: str | None
     position: float
     due_date: datetime | None
+    cover_color: str | None = None
+    cover_image_url: str | None = None
     archived: bool
     created_by_id: int | None
     created_at: datetime
@@ -115,6 +117,8 @@ class CardUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=160)
     description: str | None = None
     due_date: datetime | None = None
+    cover_color: str | None = Field(default=None, max_length=32)
+    cover_image_url: str | None = Field(default=None, max_length=2048)
     archived: bool | None = None
     label_ids: list[int] | None = None
     member_ids: list[int] | None = None

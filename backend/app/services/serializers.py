@@ -44,6 +44,8 @@ def card_read(card: Card) -> dict:
         "description": card.description,
         "position": float(card.position),
         "due_date": card.due_date,
+        "cover_color": getattr(card, "cover_color", None),
+        "cover_image_url": getattr(card, "cover_image_url", None),
         "archived": card.archived,
         "created_by_id": card.created_by_id,
         "created_at": created_at,

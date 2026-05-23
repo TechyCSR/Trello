@@ -5,19 +5,22 @@ import {
   Image,
   Loader2,
   MessageSquare,
+  Pencil,
   Plus,
   Tag,
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CardCoverPicker } from "@/components/CardCoverPicker";
 import { resolveAvatarUrl } from "@/lib/avatar";
+import { findCoverColor, hasCover } from "@/lib/cardCovers";
 import { useAppStore } from "@/store/useAppStore";
 import type { Card, Checklist, Label } from "@/types";
 
@@ -58,6 +61,8 @@ export function CardDialog() {
   const [commentText, setCommentText] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [isLabelCreatorOpen, setIsLabelCreatorOpen] = useState(false);
+  const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
+  const checklistSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!selectedCard) return;
@@ -70,6 +75,7 @@ export function CardDialog() {
     setCommentText("");
     setPendingAction(null);
     setIsLabelCreatorOpen(false);
+    setIsCoverPickerOpen(false);
     // Reset local form only when a different card is opened to avoid clobbering in-progress edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCard?.id]);
@@ -239,15 +245,46 @@ export function CardDialog() {
         setSelectedCard(null);
       }}
     >
-      <DialogContent className="max-h-[86vh] w-[min(1180px,calc(100vw-32px))] overflow-hidden border-white/10 bg-[#202226] p-0 text-slate-100 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 bg-[#17191d] px-6 py-4">
-          <Badge className="border-white/10 bg-yellow-500/20 text-yellow-100">{listTitle}</Badge>
-          <div className="mr-8 flex items-center gap-3 text-slate-300">
-            <Image className="h-4 w-4" />
+      <DialogContent className="flex max-h-[86vh] w-[min(1180px,calc(100vw-32px))] flex-col overflow-hidden border-white/10 bg-[#202226] p-0 text-slate-100 shadow-2xl">
+        <div className="relative shrink-0">
+          {selectedCard.cover_image_url ? (
+            <div
+              className="h-40 w-full bg-cover bg-center"
+              style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 100%), url(${selectedCard.cover_image_url})` }}
+            />
+          ) : findCoverColor(selectedCard.cover_color) ? (
+            <div className={`h-32 w-full ${findCoverColor(selectedCard.cover_color)!.className}`} />
+          ) : (
+            <div className="h-12 w-full bg-[#17191d]" />
+          )}
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between px-6 py-4">
+            <Badge className="pointer-events-auto border-white/15 bg-black/40 text-yellow-100 backdrop-blur">{listTitle}</Badge>
+            <div className="mr-8 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="pointer-events-auto h-8 gap-1.5 border-white/15 bg-black/40 px-2.5 text-slate-100 backdrop-blur hover:bg-black/60"
+                onClick={() => setIsCoverPickerOpen((open) => !open)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Cover
+              </Button>
+            </div>
           </div>
+          {isCoverPickerOpen && (
+            <div className="kanban-scroll absolute right-6 top-full z-30 mt-2 max-h-[70vh] w-[320px] overflow-y-auto">
+              <CardCoverPicker
+                coverColor={selectedCard.cover_color}
+                coverImageUrl={selectedCard.cover_image_url}
+                onChange={(patch) => void persistPatch(patch, "cover")}
+                onClose={() => setIsCoverPickerOpen(false)}
+              />
+            </div>
+          )}
         </div>
 
-        <form onSubmit={saveCard} className="kanban-scroll grid max-h-[calc(86vh-64px)] overflow-y-auto lg:grid-cols-[1fr_430px]">
+        <form onSubmit={saveCard} className="kanban-scroll grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[1fr_430px]">
           <section className="space-y-6 border-white/10 p-6 lg:border-r">
             <div className="flex items-start gap-3">
               <CheckSquare className="mt-2 h-6 w-6 shrink-0 text-slate-300" />
@@ -265,9 +302,25 @@ export function CardDialog() {
                 <Tag className="h-4 w-4" />
                 Labels
               </Button>
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={createChecklist} disabled={Boolean(firstChecklist)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                onClick={() => {
+                  if (firstChecklist) {
+                    checklistSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  } else {
+                    void createChecklist();
+                    requestAnimationFrame(() => checklistSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                  }
+                }}
+              >
                 <CheckSquare className="h-4 w-4" />
                 Checklist
+              </Button>
+              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={() => setIsCoverPickerOpen((open) => !open)}>
+                <Image className="h-4 w-4" />
+                {hasCover(selectedCard) ? "Change cover" : "Cover"}
               </Button>
             </div>
 
@@ -375,19 +428,40 @@ export function CardDialog() {
               <Textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                onBlur={() => {
-                  const next = description.trim() ? description.trim() : null;
-                  if ((selectedCard?.description ?? null) !== next) {
-                    void persistPatch({ description: next }, "description");
-                  }
-                }}
                 placeholder="Add a more detailed description..."
                 className="ml-8 mr-2 block min-h-24 max-w-[calc(100%-2.5rem)] resize-y border-white/15 bg-black/15 text-slate-100 placeholder:text-slate-400"
                 disabled={isBusy}
               />
+              {description !== (selectedCard.description ?? "") && (
+                <div className="ml-8 flex gap-2">
+                  <Button
+                    type="button"
+                    className="bg-blue-500 text-slate-100 hover:bg-blue-400"
+                    disabled={isBusy}
+                    onClick={() => {
+                      const next = description.trim() ? description.trim() : null;
+                      if ((selectedCard?.description ?? null) !== next) {
+                        void persistPatch({ description: next }, "description");
+                      }
+                    }}
+                  >
+                    {pendingAction === "description" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                    disabled={isBusy}
+                    onClick={() => setDescription(selectedCard.description ?? "")}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </section>
 
-            <section className="grid gap-3">
+            <section ref={checklistSectionRef} className="grid gap-3 scroll-mt-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-lg font-semibold text-slate-200">
                   <CheckSquare className="h-5 w-5 text-slate-300" />
@@ -483,10 +557,6 @@ export function CardDialog() {
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-white/10 pt-5">
-              <Button type="submit" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isBusy || !title.trim()}>
-                {pendingAction === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Save changes
-              </Button>
               <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={archiveCard} disabled={isBusy}>
                 {pendingAction === "archive" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
                 Archive

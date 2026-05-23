@@ -4,9 +4,28 @@ import { useSortable } from "@dnd-kit/sortable";
 
 import { Badge } from "@/components/ui/badge";
 import { resolveAvatarUrl } from "@/lib/avatar";
+import { findCoverColor } from "@/lib/cardCovers";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import type { Card } from "@/types";
+
+export function CardCoverBanner({ card, height = "h-20" }: { card: Card; height?: string }) {
+  if (card.cover_image_url) {
+    return (
+      <div
+        className={`${height} w-full overflow-hidden rounded-lg bg-cover bg-center shadow-[0_8px_18px_-12px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.08)]`}
+        style={{ backgroundImage: `url(${card.cover_image_url})` }}
+      />
+    );
+  }
+  const color = findCoverColor(card.cover_color);
+  if (!color) return null;
+  return (
+    <div
+      className={`${height} w-full overflow-hidden rounded-lg ${color.className} shadow-[0_8px_18px_-12px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.18)]`}
+    />
+  );
+}
 
 export function CardFace({ card, compact = false }: { card: Card; compact?: boolean }) {
   const checklistTotal = card.checklists.reduce((sum, checklist) => sum + checklist.items.length, 0);
@@ -14,6 +33,11 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
 
   return (
     <>
+      {(card.cover_image_url || card.cover_color) && (
+        <div className="mb-2">
+          <CardCoverBanner card={card} />
+        </div>
+      )}
       <div className="mb-2 flex flex-wrap gap-1">
         {card.labels.map((label) => (
           <span key={label.id} className="h-2 w-12 rounded-full" style={{ backgroundColor: label.color }} />

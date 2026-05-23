@@ -29,7 +29,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { BoardListColumn } from "@/components/BoardListColumn";
 import { CardDialog } from "@/components/CardDialog";
-import { CardFace } from "@/components/KanbanCard";
+import { CardCoverBanner, CardFace } from "@/components/KanbanCard";
+import { hasCover } from "@/lib/cardCovers";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -96,12 +97,18 @@ function InboxCardRow({
     <div
       ref={sortable.setNodeRef}
       style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }}
-      className={`rounded-xl border border-white/15 bg-[#222733] p-3 shadow-sm transition hover:border-white/35 ${
+      className={`overflow-hidden rounded-xl border border-white/15 bg-[#222733] shadow-sm transition hover:border-white/35 ${
         sortable.isDragging ? "opacity-40" : ""
       }`}
       {...sortable.attributes}
       {...sortable.listeners}
     >
+      {hasCover(card) && (
+        <div className="px-2 pt-2">
+          <CardCoverBanner card={card} height="h-14" />
+        </div>
+      )}
+      <div className="p-3">
       {isEditing ? (
         <div className="space-y-2">
           <Input
@@ -164,6 +171,7 @@ function InboxCardRow({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

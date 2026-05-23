@@ -15,6 +15,8 @@ class Card(Base):
     description: Mapped[str | None] = mapped_column(Text)
     position: Mapped[float] = mapped_column(Numeric(12, 4), default=0)
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cover_color: Mapped[str | None] = mapped_column(String(32))
+    cover_image_url: Mapped[str | None] = mapped_column(Text)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

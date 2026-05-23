@@ -117,6 +117,8 @@ def ensure_runtime_schema(engine: Engine) -> None:
             "description": "TEXT",
             "position": "NUMERIC(12, 4) NOT NULL DEFAULT 0",
             "due_date": timestamp_type,
+            "cover_color": "VARCHAR(32)",
+            "cover_image_url": "TEXT",
             "archived": "BOOLEAN NOT NULL DEFAULT FALSE",
             "created_by_id": "INTEGER",
             "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",

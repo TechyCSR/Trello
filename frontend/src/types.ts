@@ -42,6 +42,8 @@ export type Card = {
   description: string | null;
   position: number;
   due_date: string | null;
+  cover_color: string | null;
+  cover_image_url: string | null;
   archived: boolean;
   created_by_id: number | null;
   created_at: string;
