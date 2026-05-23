@@ -18,17 +18,17 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
           <span key={label.id} className="h-2 w-12 rounded-full" style={{ backgroundColor: label.color }} />
         ))}
       </div>
-      <div className="line-clamp-3 text-sm font-medium text-slate-900">{card.title}</div>
+      <div className="line-clamp-3 text-sm font-medium text-slate-100">{card.title}</div>
       {!compact && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
           {card.due_date && (
-            <Badge className="gap-1 bg-slate-50">
+            <Badge className="gap-1 border-white/20 bg-white/10 text-slate-100">
               <CalendarClock className="h-3 w-3" />
               {new Date(card.due_date).toLocaleDateString()}
             </Badge>
           )}
           {checklistTotal > 0 && (
-            <Badge className="gap-1 bg-slate-50">
+            <Badge className="gap-1 border-white/20 bg-white/10 text-slate-100">
               <CheckSquare className="h-3 w-3" />
               {checklistDone}/{checklistTotal}
             </Badge>
@@ -61,7 +61,7 @@ export function KanbanCard({ card, compact = false }: { card: Card; compact?: bo
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "w-full rounded-md border border-border bg-white p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow-card",
+        "w-full rounded-xl border border-white/10 bg-[#1f2736] p-3 text-left shadow-sm transition hover:border-white/35 hover:shadow-card",
         isDragging && "opacity-40",
       )}
       onClick={() => setSelectedCard(card)}

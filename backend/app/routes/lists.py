@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
@@ -32,8 +32,11 @@ def create_list(
     share_token: str | None = Depends(board_share_token),
 ) -> dict:
     board = ensure_board_editor(db, db.get(Board, payload.board_id), user, share_token)
+    has_inbox = db.query(BoardList.id).filter(BoardList.board_id == board.id, BoardList.is_inbox.is_(True)).first() is not None
+    is_inbox = bool(payload.is_inbox) and not has_inbox
     max_position = db.query(func.max(BoardList.position)).filter(BoardList.board_id == board.id).scalar() or 0
-    board_list = BoardList(board_id=board.id, title=payload.title, position=float(max_position) + 1024)
+    position = 0 if is_inbox else float(max_position) + 1024
+    board_list = BoardList(board_id=board.id, title=payload.title, is_inbox=is_inbox, position=position)
     db.add(board_list)
     db.commit()
     db.refresh(board_list)
@@ -82,5 +85,7 @@ def delete_list(
 ) -> None:
     board_list = list_loaded(db, list_id)
     ensure_board_editor(db, board_list.board if board_list else None, user, share_token)
+    if board_list and board_list.is_inbox:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inbox list cannot be deleted")
     db.delete(board_list)
     db.commit()

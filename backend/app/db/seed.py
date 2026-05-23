@@ -51,14 +51,14 @@ def seed_database(db: Session) -> None:
     db.flush()
 
     launch_lists = [
-        BoardList(board_id=product.id, title="Inbox", position=1024),
+        BoardList(board_id=product.id, title="Inbox", is_inbox=True, position=0),
         BoardList(board_id=product.id, title="Design", position=2048),
         BoardList(board_id=product.id, title="In Progress", position=3072),
         BoardList(board_id=product.id, title="Review", position=4096),
         BoardList(board_id=product.id, title="Done", position=5120),
     ]
     hiring_lists = [
-        BoardList(board_id=hiring.id, title="Requirements", position=1024),
+        BoardList(board_id=hiring.id, title="Requirements", is_inbox=True, position=0),
         BoardList(board_id=hiring.id, title="Implementation", position=2048),
         BoardList(board_id=hiring.id, title="Verification", position=3072),
     ]

@@ -45,6 +45,7 @@ export type BoardList = {
   id: number;
   board_id: number;
   title: string;
+  is_inbox: boolean;
   position: number;
   cards: Card[];
 };
@@ -53,6 +54,8 @@ export type BoardSummary = {
   id: number;
   board_code: string;
   title: string;
+  inbox_title: string;
+  board_section_title: string;
   description: string | null;
   color: string;
   is_public: boolean;

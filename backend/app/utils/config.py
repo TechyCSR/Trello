@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -8,7 +12,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     auto_seed: bool = True
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=str(ENV_PATH), env_file_encoding="utf-8")
 
     @property
     def cors_origin_list(self) -> list[str]:

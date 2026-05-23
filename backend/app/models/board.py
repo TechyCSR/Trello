@@ -19,6 +19,8 @@ class Board(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     board_code: Mapped[str] = mapped_column(String(6), unique=True, index=True, default=_random_code)
     title: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    inbox_title: Mapped[str] = mapped_column(String(120), default="Inbox")
+    board_section_title: Mapped[str] = mapped_column(String(120), default="Board")
     description: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(32), default="sky")
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

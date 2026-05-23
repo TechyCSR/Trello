@@ -47,6 +47,7 @@ def list_read(board_list: BoardList) -> dict:
         "id": board_list.id,
         "board_id": board_list.board_id,
         "title": board_list.title,
+        "is_inbox": bool(getattr(board_list, "is_inbox", False)),
         "position": float(board_list.position),
         "cards": [card_read(card) for card in board_list.cards if not card.archived],
     }
@@ -61,6 +62,8 @@ def board_summary(board: Board, list_count: int | None = None, card_count: int |
         "id": board.id,
         "board_code": board.board_code,
         "title": board.title,
+        "inbox_title": board.inbox_title or "Inbox",
+        "board_section_title": board.board_section_title or "Board",
         "description": board.description,
         "color": board.color,
         "is_public": board.is_public,

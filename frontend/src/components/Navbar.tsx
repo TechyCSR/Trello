@@ -1,4 +1,4 @@
-import { PanelsTopLeft, Search } from "lucide-react";
+import { Bell, HelpCircle, Megaphone, PanelsTopLeft, Palette, Search, Share2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -111,6 +111,21 @@ export function Navbar() {
         <div className="ml-auto flex items-center gap-2 text-slate-300">
           <Button className="bg-blue-600 text-white hover:bg-blue-500" onClick={openCreateBoard}>
             Create
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Announcements">
+            <Megaphone className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Notifications">
+            <Bell className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Theme controls">
+            <Palette className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Share controls">
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Help">
+            <HelpCircle className="h-4 w-4" />
           </Button>
           <div className="relative">
             <button

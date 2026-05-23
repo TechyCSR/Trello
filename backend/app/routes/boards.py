@@ -90,6 +90,8 @@ def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User
     board = Board(
         board_code=assign_unique_board_code(db),
         title=payload.title,
+        inbox_title=payload.inbox_title,
+        board_section_title=payload.board_section_title,
         description=payload.description,
         color=payload.color,
         is_public=payload.is_public,
@@ -100,6 +102,7 @@ def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User
     )
     db.add(board)
     db.flush()
+    db.add(BoardList(board_id=board.id, title="Inbox", is_inbox=True, position=0))
     member_ids = {user.id, *payload.member_ids}
     users = db.query(User).filter(User.id.in_(member_ids)).all()
     for member in users:
@@ -128,7 +131,7 @@ def update_board(
     share_token: str | None = Depends(board_share_token),
 ) -> dict:
     board = ensure_board_editor(db, get_board_loaded(db, board_ref), user, share_token)
-    for field in ("title", "description", "color", "is_public"):
+    for field in ("title", "inbox_title", "board_section_title", "description", "color", "is_public"):
         value = getattr(payload, field)
         if value is not None:
             setattr(board, field, value)

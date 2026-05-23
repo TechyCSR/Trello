@@ -66,6 +66,8 @@ def ensure_runtime_schema(engine: Engine) -> None:
         {
             "board_code": "VARCHAR(6)",
             "title": "VARCHAR(120)",
+            "inbox_title": "VARCHAR(120) NOT NULL DEFAULT 'Inbox'",
+            "board_section_title": "VARCHAR(120) NOT NULL DEFAULT 'Board'",
             "description": "TEXT",
             "color": "VARCHAR(32) NOT NULL DEFAULT 'sky'",
             "is_public": "BOOLEAN NOT NULL DEFAULT FALSE",
@@ -97,6 +99,7 @@ def ensure_runtime_schema(engine: Engine) -> None:
         {
             "board_id": "INTEGER",
             "title": "VARCHAR(120)",
+            "is_inbox": "BOOLEAN NOT NULL DEFAULT FALSE",
             "position": "NUMERIC(12, 4) NOT NULL DEFAULT 0",
             "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "updated_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -198,6 +201,7 @@ def ensure_runtime_schema(engine: Engine) -> None:
             [
                 "CREATE INDEX IF NOT EXISTS ix_lists_board_id ON lists (board_id)",
                 "CREATE INDEX IF NOT EXISTS ix_lists_board_position ON lists (board_id, position)",
+                "CREATE INDEX IF NOT EXISTS ix_lists_board_inbox ON lists (board_id, is_inbox)",
             ]
         )
     if "cards" in existing_tables:
@@ -326,6 +330,12 @@ def ensure_runtime_schema(engine: Engine) -> None:
             connection.execute(text("UPDATE boards SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))
             if "visibility" in board_columns:
                 connection.execute(text("UPDATE boards SET visibility = CASE WHEN is_public THEN 'public' ELSE 'private' END WHERE visibility IS NULL OR visibility = ''"))
+            if "inbox_title" in board_columns:
+                connection.execute(text("UPDATE boards SET inbox_title = 'Inbox' WHERE inbox_title IS NULL OR inbox_title = ''"))
+            if "board_section_title" in board_columns:
+                connection.execute(
+                    text("UPDATE boards SET board_section_title = 'Board' WHERE board_section_title IS NULL OR board_section_title = ''")
+                )
             if "share_enabled" in board_columns:
                 connection.execute(text("UPDATE boards SET share_enabled = FALSE WHERE share_enabled IS NULL"))
             if "board_code" in board_columns:
@@ -367,6 +377,48 @@ def ensure_runtime_schema(engine: Engine) -> None:
         if "lists" in post_tables:
             connection.execute(text("UPDATE lists SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE lists SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))
+            list_columns = {column["name"] for column in post_inspector.get_columns("lists")}
+            if "is_inbox" in list_columns:
+                connection.execute(text("UPDATE lists SET is_inbox = FALSE WHERE is_inbox IS NULL"))
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO lists (board_id, title, is_inbox, position)
+                        SELECT b.id, 'Inbox', TRUE, 0
+                        FROM boards AS b
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM lists AS l WHERE l.board_id = b.id
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text(
+                        """
+                        UPDATE lists
+                        SET is_inbox = TRUE
+                        WHERE id IN (
+                            SELECT chosen.id
+                            FROM (
+                                SELECT l1.id
+                                FROM lists AS l1
+                                WHERE l1.id = (
+                                    SELECT l2.id
+                                    FROM lists AS l2
+                                    WHERE l2.board_id = l1.board_id
+                                    ORDER BY l2.position, l2.id
+                                    LIMIT 1
+                                )
+                                AND NOT EXISTS (
+                                    SELECT 1
+                                    FROM lists AS lx
+                                    WHERE lx.board_id = l1.board_id AND lx.is_inbox = TRUE
+                                )
+                            ) AS chosen
+                        )
+                        """
+                    )
+                )
         if "cards" in post_tables:
             connection.execute(text("UPDATE cards SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE cards SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))

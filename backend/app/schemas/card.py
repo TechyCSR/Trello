@@ -51,6 +51,7 @@ class ListRead(BaseModel):
     id: int
     board_id: int
     title: str
+    is_inbox: bool = False
     position: float
     cards: list[CardRead] = []
 
@@ -58,6 +59,7 @@ class ListRead(BaseModel):
 class ListCreate(BaseModel):
     board_id: int
     title: str = Field(min_length=1, max_length=120)
+    is_inbox: bool = False
 
 
 class ListUpdate(BaseModel):

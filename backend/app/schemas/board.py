@@ -7,6 +7,8 @@ from app.schemas.user import UserRead
 
 class BoardCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
+    inbox_title: str = Field(default="Inbox", min_length=1, max_length=120)
+    board_section_title: str = Field(default="Board", min_length=1, max_length=120)
     description: str | None = None
     color: str = "sky"
     is_public: bool = False
@@ -15,6 +17,8 @@ class BoardCreate(BaseModel):
 
 class BoardUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
+    inbox_title: str | None = Field(default=None, min_length=1, max_length=120)
+    board_section_title: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     color: str | None = None
     is_public: bool | None = None
@@ -25,6 +29,8 @@ class BoardSummary(BaseModel):
     id: int
     board_code: str
     title: str
+    inbox_title: str
+    board_section_title: str
     description: str | None
     color: str
     is_public: bool

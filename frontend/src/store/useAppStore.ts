@@ -37,7 +37,7 @@ type AppState = {
   setCreateBoardModalOpen: (open: boolean) => void;
   updateBoard: (boardId: number, payload: Partial<BoardSummary> & { member_ids?: number[] }) => Promise<void>;
   deleteBoard: (boardId: number) => Promise<void>;
-  createList: (title: string) => Promise<void>;
+  createList: (title: string, isInbox?: boolean) => Promise<BoardList | null>;
   updateList: (listId: number, title: string) => Promise<void>;
   deleteList: (listId: number) => Promise<void>;
   reorderLists: (activeId: number, overId: number) => Promise<void>;
@@ -241,11 +241,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  async createList(title) {
+  async createList(title, isInbox = false) {
     const board = get().activeBoard;
-    if (!board) return;
-    const { data } = await api.post<BoardList>("/lists", { board_id: board.id, title });
+    if (!board) return null;
+    const { data } = await api.post<BoardList>("/lists", { board_id: board.id, title, is_inbox: isInbox });
     set({ activeBoard: { ...board, lists: sortLists([...board.lists, data]) } });
+    return data;
   },
 
   async updateList(listId, title) {
@@ -278,8 +279,56 @@ export const useAppStore = create<AppState>((set, get) => ({
   async createCard(listId, title) {
     const board = get().activeBoard;
     if (!board) return;
-    const { data } = await api.post<Card>("/cards", { list_id: listId, title });
-    set({ activeBoard: replaceCard(board, data) });
+    const list = board.lists.find((item) => item.id === listId);
+    const maxPosition = list?.cards.length ? Math.max(...list.cards.map((card) => card.position)) : 0;
+    const now = new Date().toISOString();
+    const tempId = -Date.now();
+    const optimisticCard: Card = {
+      id: tempId,
+      list_id: listId,
+      title,
+      description: null,
+      position: maxPosition + 1024,
+      due_date: null,
+      archived: false,
+      created_by_id: get().currentUser?.id ?? null,
+      created_at: now,
+      updated_at: now,
+      labels: [],
+      members: [],
+      checklists: [],
+    };
+    set({ activeBoard: replaceCard(board, optimisticCard) });
+    try {
+      const { data } = await api.post<Card>("/cards", { list_id: listId, title });
+      set((state) => {
+        const current = state.activeBoard ?? board;
+        return {
+          activeBoard: {
+            ...current,
+            lists: current.lists.map((currentList) => {
+              if (currentList.id !== listId) return currentList;
+              const cards = [...currentList.cards.filter((card) => card.id !== tempId && card.id !== data.id), data].sort(
+                (a, b) => a.position - b.position,
+              );
+              return { ...currentList, cards };
+            }),
+          },
+        };
+      });
+    } catch {
+      const current = get().activeBoard ?? board;
+      set({
+        activeBoard: {
+          ...current,
+          lists: current.lists.map((currentList) => ({
+            ...currentList,
+            cards: currentList.cards.filter((card) => card.id !== tempId),
+          })),
+        },
+        error: "Could not create card. Please try again.",
+      });
+    }
   },
 
   async updateCard(cardId, payload) {
