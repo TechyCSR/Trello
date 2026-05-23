@@ -83,8 +83,7 @@ It also creates sample boards, lists, cards, labels, card members, and checklist
 
 This repo now includes:
 
-- `vercel.json` for deploying the frontend from the repository root.
-- `frontend/vercel.json` if you choose `frontend` as the Vercel project root instead.
+- `frontend/vercel.json` for deploying with `frontend` selected as the Vercel project root.
 - `render.yaml` for a Render Blueprint backend service.
 - `backend/runtime.txt` to pin Python for Render.
 
@@ -92,19 +91,14 @@ This repo now includes:
 
 Recommended import path:
 
-- Import the repository root into Vercel.
-- Keep the included root `vercel.json`.
+- Import the repository into Vercel.
+- Set Vercel Root Directory to `frontend`.
+- Vercel will use `frontend/vercel.json`.
 - Set environment variable:
 
 ```text
 VITE_API_URL=https://your-render-service.onrender.com
 ```
-
-Alternative:
-
-- Set Vercel root directory to `frontend`.
-- Vercel will use `frontend/vercel.json`.
-- Set the same `VITE_API_URL`.
 
 ### Render
 
