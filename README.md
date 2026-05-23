@@ -1,150 +1,306 @@
-# Flowboard: Trello-Inspired Kanban
+# Trello-Inspired Kanban Workspace
 
-Flowboard is a polished Kanban project management app built for an SDE Intern assignment. It supports multiple boards, public/private visibility, seeded multi-user collaboration simulation, lists, cards, card details, search/filtering, and smooth dnd-kit drag-and-drop.
+A modern Trello-style productivity workspace with boards, inbox capture, Kanban lists, draggable cards, card details, labels, checklists, due dates, members, comments, activity history, and responsive mobile/desktop layouts.
 
-## Architecture
+Live deployment:
 
-```text
-frontend/  React + Vite + TypeScript + Tailwind + shadcn-style UI
-backend/   FastAPI + SQLAlchemy + Pydantic + PostgreSQL-ready data model
-```
+- Frontend: https://trello.techycsr.dev/
+- Backend health check: https://trello-d5l0.onrender.com/health
 
-The frontend keeps fast UI state in Zustand and talks to FastAPI through Axios. The backend uses SQLAlchemy relationships with position columns for list/card ordering and validates access through the simulated `X-USER-ID` header.
+## Features
+
+- Multi-board workspace with board dashboard.
+- Inbox section for quick task/card capture.
+- Board section with horizontal Kanban lists.
+- Drag and drop cards between lists and back to inbox.
+- Create, rename, reorder, collapse, and delete lists.
+- Create, edit, archive, and delete cards.
+- Card detail modal with title, description, labels, due date, checklist items, comments, and activity.
+- Global user assignment with avatar images.
+- Multiple simulated users with account switching from the navbar.
+- Board switching modal.
+- Responsive mobile layout with one active workspace section at a time.
+- Vercel frontend deployment and Render backend deployment.
 
 ## Tech Stack
 
-- Frontend: React, Vite, TypeScript, Tailwind CSS, shadcn/ui-style primitives, dnd-kit, Zustand, Axios, React Router DOM.
-- Backend: FastAPI, SQLAlchemy, PostgreSQL, Pydantic.
-- Deployment targets: Vercel frontend, Render backend, Neon PostgreSQL database.
-- Python: 3.11.5 with `backend/.venv`.
+Frontend:
 
-## Pages
+- React 18
+- Vite
+- TypeScript
+- Tailwind CSS
+- Zustand
+- Axios
+- React Router
+- dnd-kit
+- Radix UI primitives
+- Lucide icons
 
-- `/` Home page with modern branding and CTA.
-- `/boards` fast board dashboard with create/delete/search/filter.
-- `/boards/:boardId` Trello-style workspace with inbox sidebar, horizontal lists, card modal, members, labels, due-date filters, and drag/drop.
+Backend:
+
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- PostgreSQL
+- Uvicorn
+
+Deployment:
+
+- Vercel for frontend
+- Render for backend
+- PostgreSQL database, for example Neon or Render Postgres
+
+## Project Structure
+
+```text
+frontend/   React + Vite frontend
+backend/    FastAPI backend
+```
+
+Important files:
+
+```text
+frontend/vercel.json       Vercel config when frontend is selected as root
+backend/runtime.txt        Python runtime pin
+backend/.python-version    Python version for Render
+render.yaml                Optional Render Blueprint config
+```
 
 ## Local Setup
 
-### Backend
+### 1. Backend
+
+Create and activate a Python environment:
 
 ```powershell
 py -3.11 -m venv backend\.venv
 backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+Create the backend environment file:
+
+```powershell
 Copy-Item backend\.env.example backend\.env
 ```
 
-Set `DATABASE_URL` in `backend/.env`. For Neon/Render, use a PostgreSQL URL:
+Example `backend/.env`:
 
-```text
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/trello_kanban
 CORS_ORIGINS=http://localhost:5173
+CORS_ORIGIN_REGEX=
+AUTO_SEED=true
 ```
 
-Run the API:
+Run the backend:
 
 ```powershell
-$env:PYTHONPATH="backend"
-backend\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-### Frontend
+Backend health check:
+
+```text
+http://localhost:8000/health
+```
+
+### 2. Frontend
+
+Install dependencies:
 
 ```powershell
 cd frontend
 npm install
-npm run dev
 ```
 
-Optional `.env` for frontend:
+Create `frontend/.env`:
 
-```text
+```env
 VITE_API_URL=http://localhost:8000
 ```
 
-## Seed Data
+Run the frontend:
 
-On startup, the backend seeds 10 users:
-
-`TechyCSR`, `Alex`, `Sarah`, `John`, `Emma`, `Liam`, `Sophia`, `Noah`, `Olivia`, `Ethan`.
-
-It also creates sample boards, lists, cards, labels, card members, and checklist items.
-
-## API Overview
-
-- Boards: `GET /boards`, `POST /boards`, `GET /boards/{id}`, `PATCH /boards/{id}`, `DELETE /boards/{id}`
-- Lists: `POST /lists`, `PATCH /lists/{id}`, `DELETE /lists/{id}`, `PATCH /lists/reorder`
-- Labels: `POST /labels`
-- Cards: `POST /cards`, `PATCH /cards/{id}`, `DELETE /cards/{id}`, `PATCH /cards/move`, `POST /cards/{id}/comments`
-- Search: `GET /cards/search`
-- Users: `GET /users`
-
-## Deployment
-
-This repo now includes:
-
-- `frontend/vercel.json` for deploying with `frontend` selected as the Vercel project root.
-- `render.yaml` for a Render Blueprint backend service.
-- `backend/runtime.txt` to pin Python for Render.
-
-### Vercel
-
-Recommended import path:
-
-- Import the repository into Vercel.
-- Set Vercel Root Directory to `frontend`.
-- Vercel will use `frontend/vercel.json`.
-- Set environment variable:
-
-```text
-VITE_API_URL=https://your-render-service.onrender.com
+```powershell
+npm run dev
 ```
 
-### Render
-
-- Create a Render Blueprint from `render.yaml`, or create a Web Service manually.
-- Root directory: `backend`
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Health check path: `/health`
-
-Required environment variables:
+Frontend URL:
 
 ```text
+http://localhost:5173
+```
+
+## Build Checks
+
+Frontend:
+
+```powershell
+cd frontend
+npm run build
+```
+
+Backend import check:
+
+```powershell
+cd backend
+$env:PYTHONDONTWRITEBYTECODE='1'
+python -B -c "import app.main"
+```
+
+## Environment Variables
+
+### Frontend
+
+```env
+VITE_API_URL=https://trello-d5l0.onrender.com
+```
+
+### Backend
+
+```env
 PYTHON_VERSION=3.11.9
-DATABASE_URL=postgresql://...
-CORS_ORIGINS=https://your-vercel-production-domain.vercel.app
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+CORS_ORIGINS=https://trello.techycsr.dev
 CORS_ORIGIN_REGEX=^https://.*\.vercel\.app$
 AUTO_SEED=true
 ```
 
-Use `CORS_ORIGINS` for exact production/custom domains and `CORS_ORIGIN_REGEX` for Vercel preview deployments.
-Render now defaults new Python services to a very new Python runtime. Keep `PYTHON_VERSION=3.11.9` set, or commit/use `backend/.python-version`, so pinned native dependencies install from prebuilt wheels instead of compiling during deployment.
+Use `CORS_ORIGINS` for exact frontend domains. Use `CORS_ORIGIN_REGEX` if you want Vercel preview deployments to call the backend.
 
-### Neon
+## Deployment
 
-Create a Neon PostgreSQL database and copy the pooled or direct connection string into Render as `DATABASE_URL`.
+### Frontend on Vercel
 
-## Screenshots
+Use these Vercel settings:
 
-Add screenshots after deployment:
+- Root Directory: `frontend`
+- Install Command: `npm ci`
+- Build Command: `npm run build`
+- Output Directory: `dist`
 
-- `docs/screenshots/home.png`
-- `docs/screenshots/boards.png`
-- `docs/screenshots/workspace.png`
-- `docs/screenshots/card-modal.png`
+Set this Vercel environment variable:
 
-## Assumptions
+```env
+VITE_API_URL=https://trello-d5l0.onrender.com
+```
 
-- No login/signup is implemented by design.
-- The current user is selected from the navbar and persisted in `localStorage`.
-- `X-USER-ID` is trusted only for this assignment simulation.
-- SQLite fallback exists for quick local smoke checks, while production is PostgreSQL.
+The project includes `frontend/vercel.json` for SPA routing fallback.
+
+### Backend on Render
+
+Use these Render settings:
+
+- Root Directory: `backend`
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/health`
+
+Set these Render environment variables:
+
+```env
+PYTHON_VERSION=3.11.9
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+CORS_ORIGINS=https://trello.techycsr.dev
+CORS_ORIGIN_REGEX=^https://.*\.vercel\.app$
+AUTO_SEED=true
+```
+
+Python is pinned to `3.11.9` because newer Render defaults can force native dependencies such as `pydantic-core` to compile from source.
+
+## API Overview
+
+Users:
+
+- `GET /users`
+
+Boards:
+
+- `GET /boards`
+- `POST /boards`
+- `GET /boards/{board_id_or_code}`
+- `PATCH /boards/{board_id}`
+- `DELETE /boards/{board_id}`
+
+Lists:
+
+- `POST /lists`
+- `PATCH /lists/{list_id}`
+- `DELETE /lists/{list_id}`
+- `PATCH /lists/reorder`
+
+Cards:
+
+- `POST /cards`
+- `PATCH /cards/{card_id}`
+- `DELETE /cards/{card_id}`
+- `PATCH /cards/move`
+- `POST /cards/{card_id}/comments`
+- `GET /cards/search`
+
+Labels:
+
+- `POST /labels`
+
+## Data Model Summary
+
+The backend stores:
+
+- Users
+- Boards
+- Board members
+- Lists
+- Cards
+- Labels
+- Card labels
+- Card members
+- Checklists
+- Checklist items
+- Card activity records
+
+List and card ordering use numeric `position` values so items can move smoothly without renumbering every row.
+
+## Multi-User Support
+
+This app supports simulated multi-user collaboration.
+
+Assumptions:
+
+- There is no password-based authentication in this assignment build.
+- The active user is selected in the UI and stored in `localStorage`.
+- Requests send the selected user through the `X-USER-ID` header.
+- The backend validates board access using board ownership, board membership, or share-token access.
+- Global users can be assigned to cards.
+- Activity records store which user performed a card action when available.
+
+Seeded users include:
+
+```text
+TechyCSR, Alex, Sarah, John, Emma, Liam, Sophia, Noah, Olivia, Ethan
+```
+
+## Runtime Schema
+
+The backend uses SQLAlchemy `create_all` plus additive runtime schema patching for assignment-friendly deployment. This keeps older local or hosted databases compatible without requiring Alembic migrations.
+
+For a production-grade long-term project, Alembic migrations would be the next step.
+
+## Assumptions and Notes
+
+- Production database should be PostgreSQL.
+- SQLite fallback exists for quick local smoke checks.
+- Render free instances can cold start, so the frontend API timeout is set higher than a local-only app.
+- Uploaded file attachments are not implemented; card covers use colors or external image URLs.
+- Real-time WebSocket collaboration is not implemented yet.
+- The current deployment is designed for Vercel frontend and Render backend.
 
 ## Future Improvements
 
-- Add WebSocket-backed live collaboration.
+- Add real authentication and invite-based permissions.
+- Add WebSocket live updates.
+- Add archived-card browsing and restore actions.
+- Add file attachments.
 - Add Alembic migrations.
-- Add archived card views and activity history.
-- Add Playwright end-to-end drag/drop tests.
-- Add file attachments and comments.
+- Add Playwright end-to-end tests for drag/drop and card editing.
