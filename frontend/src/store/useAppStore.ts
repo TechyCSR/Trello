@@ -22,6 +22,7 @@ type AppState = {
   recentBoardIds: number[];
   activeBoard: BoardDetail | null;
   selectedCard: Card | null;
+  isCreateBoardModalOpen: boolean;
   isLoadingBoards: boolean;
   isLoadingBoard: boolean;
   error: string | null;
@@ -32,7 +33,8 @@ type AppState = {
   recordRecentBoard: (boardId: number) => void;
   fetchBoards: () => Promise<void>;
   fetchBoard: (boardId: number) => Promise<void>;
-  createBoard: (title: string, isPublic: boolean) => Promise<void>;
+  createBoard: (title: string, isPublic: boolean, color?: string) => Promise<void>;
+  setCreateBoardModalOpen: (open: boolean) => void;
   updateBoard: (boardId: number, payload: Partial<BoardSummary> & { member_ids?: number[] }) => Promise<void>;
   deleteBoard: (boardId: number) => Promise<void>;
   createList: (title: string) => Promise<void>;
@@ -118,6 +120,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   recentBoardIds: readRecentBoards(storedUserId),
   activeBoard: null,
   selectedCard: null,
+  isCreateBoardModalOpen: false,
   isLoadingBoards: false,
   isLoadingBoard: false,
   error: null,
@@ -211,9 +214,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  async createBoard(title, isPublic) {
-    const { data } = await api.post<BoardDetail>("/boards", { title, is_public: isPublic, color: isPublic ? "teal" : "slate" });
+  async createBoard(title, isPublic, color = isPublic ? "teal" : "slate") {
+    const { data } = await api.post<BoardDetail>("/boards", { title, is_public: isPublic, color });
     set((state) => ({ boards: [data, ...state.boards] }));
+  },
+
+  setCreateBoardModalOpen(open) {
+    set({ isCreateBoardModalOpen: open });
   },
 
   async updateBoard(boardId, payload) {
