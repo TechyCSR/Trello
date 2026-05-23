@@ -74,25 +74,56 @@ It also creates sample boards, lists, cards, labels, card members, and checklist
 
 - Boards: `GET /boards`, `POST /boards`, `GET /boards/{id}`, `PATCH /boards/{id}`, `DELETE /boards/{id}`
 - Lists: `POST /lists`, `PATCH /lists/{id}`, `DELETE /lists/{id}`, `PATCH /lists/reorder`
-- Cards: `POST /cards`, `PATCH /cards/{id}`, `DELETE /cards/{id}`, `PATCH /cards/move`
+- Labels: `POST /labels`
+- Cards: `POST /cards`, `PATCH /cards/{id}`, `DELETE /cards/{id}`, `PATCH /cards/move`, `POST /cards/{id}/comments`
 - Search: `GET /cards/search`
 - Users: `GET /users`
 
 ## Deployment
 
+This repo now includes:
+
+- `vercel.json` for deploying the frontend from the repository root.
+- `frontend/vercel.json` if you choose `frontend` as the Vercel project root instead.
+- `render.yaml` for a Render Blueprint backend service.
+- `backend/runtime.txt` to pin Python for Render.
+
 ### Vercel
 
-- Root directory: `frontend`
-- Build command: `npm run build`
-- Output directory: `dist`
-- Environment: `VITE_API_URL=https://your-render-api.onrender.com`
+Recommended import path:
+
+- Import the repository root into Vercel.
+- Keep the included root `vercel.json`.
+- Set environment variable:
+
+```text
+VITE_API_URL=https://your-render-service.onrender.com
+```
+
+Alternative:
+
+- Set Vercel root directory to `frontend`.
+- Vercel will use `frontend/vercel.json`.
+- Set the same `VITE_API_URL`.
 
 ### Render
 
+- Create a Render Blueprint from `render.yaml`, or create a Web Service manually.
 - Root directory: `backend`
 - Build command: `pip install -r requirements.txt`
-- Start command: `PYTHONPATH=. uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Environment: `DATABASE_URL`, `CORS_ORIGINS`, `AUTO_SEED=true`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health check path: `/health`
+
+Required environment variables:
+
+```text
+DATABASE_URL=postgresql://...
+CORS_ORIGINS=https://your-vercel-production-domain.vercel.app
+CORS_ORIGIN_REGEX=^https://.*\.vercel\.app$
+AUTO_SEED=true
+```
+
+Use `CORS_ORIGINS` for exact production/custom domains and `CORS_ORIGIN_REGEX` for Vercel preview deployments.
 
 ### Neon
 

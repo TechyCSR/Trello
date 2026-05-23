@@ -10,6 +10,7 @@ ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./kanban_dev.db"
     cors_origins: str = "http://localhost:5173"
+    cors_origin_regex: str | None = None
     auto_seed: bool = True
 
     model_config = SettingsConfigDict(env_file=str(ENV_PATH), env_file_encoding="utf-8")
