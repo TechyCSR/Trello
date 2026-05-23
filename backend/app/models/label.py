@@ -20,9 +20,8 @@ class CardLabel(Base):
     __tablename__ = "card_labels"
     __table_args__ = (UniqueConstraint("card_id", "label_id", name="uq_card_label"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), index=True)
-    label_id: Mapped[int] = mapped_column(ForeignKey("labels.id", ondelete="CASCADE"), index=True)
+    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), primary_key=True, index=True)
+    label_id: Mapped[int] = mapped_column(ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True, index=True)
 
     card = relationship("Card", back_populates="label_links")
     label = relationship("Label", back_populates="card_links")

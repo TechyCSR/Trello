@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.db.migrations import ensure_runtime_schema
 from app.db.seed import seed_database
 from app.db.session import Base, SessionLocal, engine
 from app.routes import boards, cards, lists, users
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def startup() -> None:
         Base.metadata.create_all(bind=engine)
+        ensure_runtime_schema(engine)
         if settings.auto_seed:
             db = SessionLocal()
             try:

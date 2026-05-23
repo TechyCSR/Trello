@@ -17,7 +17,7 @@ def get_current_user(db: Session, x_user_id: int | None = Header(default=None, a
 def can_access_board(db: Session, board: Board, user: User) -> bool:
     if board.is_public or board.owner_id == user.id:
         return True
-    return db.query(BoardMember.id).filter_by(board_id=board.id, user_id=user.id).first() is not None
+    return db.query(BoardMember.board_id).filter_by(board_id=board.id, user_id=user.id).first() is not None
 
 
 def ensure_board_access(db: Session, board: Board | None, user: User) -> Board:

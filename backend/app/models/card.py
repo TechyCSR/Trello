@@ -30,9 +30,8 @@ class CardMember(Base):
     __tablename__ = "card_members"
     __table_args__ = (UniqueConstraint("card_id", "user_id", name="uq_card_member"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
 
     card = relationship("Card", back_populates="member_links")
     user = relationship("User", back_populates="card_memberships")
