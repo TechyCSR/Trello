@@ -420,9 +420,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,
       });
     } catch (error) {
-      // Revert optimistic change by refetching the board so UI matches DB.
-      const ref = get().activeBoard?.board_code ?? String(board.id);
-      void get().fetchBoard(ref);
       showError("Could not save changes", errorDetail(error));
     }
   },

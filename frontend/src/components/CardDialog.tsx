@@ -105,9 +105,14 @@ export function CardDialog() {
 
   if (!activeBoard || !selectedCard) return null;
 
-  async function persistPatch(payload: Parameters<typeof updateCard>[1], _action: string) {
-    // Fire-and-forget: store performs optimistic update so UI stays snappy.
-    void updateCard(selectedCard!.id, payload);
+  async function persistPatch(payload: Parameters<typeof updateCard>[1], action: string) {
+    if (pendingAction) return;
+    setPendingAction(action);
+    try {
+      await updateCard(selectedCard!.id, payload);
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function saveCard(event?: FormEvent) {
