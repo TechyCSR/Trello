@@ -69,12 +69,12 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#1b1f2a]/95 backdrop-blur">
-      <div className="mx-auto grid h-14 w-full max-w-[1700px] grid-cols-[auto_1fr_auto] items-center gap-3 px-4">
+      <div className="mx-auto grid h-14 w-full max-w-[1700px] grid-cols-[auto_1fr_auto] items-center gap-3 px-3 pr-5 sm:px-5 sm:pr-7 lg:px-8 lg:pr-10">
         <Link to={currentUser ? `/${currentUserSlug}/boards` : "/"} className="flex items-center gap-2 font-semibold text-white">
           <span className="grid h-8 w-8 place-items-center rounded-md bg-blue-600 text-white shadow-sm">
             <PanelsTopLeft className="h-4 w-4" />
           </span>
-          <span className="text-xl">Trello</span>
+          <span className="hidden text-xl sm:inline">Trello</span>
         </Link>
 
         <div className="mx-auto hidden w-full max-w-[900px] items-center gap-3 md:flex">
@@ -113,7 +113,7 @@ export function Navbar() {
           </Button>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 text-slate-300">
+        <div className="ml-auto flex items-center gap-2 pr-2 text-slate-300 sm:pr-3">
           <Button className="bg-blue-600 text-white hover:bg-blue-500 md:hidden" onClick={openCreateBoard}>
             Create
           </Button>

@@ -209,6 +209,7 @@ export function BoardWorkspacePage() {
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [savingInboxCardId, setSavingInboxCardId] = useState<number | null>(null);
   const [isSavingBoardTitle, setIsSavingBoardTitle] = useState(false);
+  const [isMobileWorkspace, setIsMobileWorkspace] = useState(() => window.matchMedia("(max-width: 767px)").matches);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const inboxList = activeBoard?.lists.find((list) => list.is_inbox) ?? activeBoard?.lists?.[0] ?? null;
   const inboxDrop = useDroppable({
@@ -255,12 +256,34 @@ export function BoardWorkspacePage() {
   }, [activeBoard?.id, activeBoard?.title, activeBoard?.inbox_title]);
 
   useEffect(() => {
-    localStorage.setItem(SHOW_INBOX_KEY, String(showInbox));
-  }, [showInbox]);
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    function syncMobileState() {
+      setIsMobileWorkspace(mediaQuery.matches);
+    }
+    syncMobileState();
+    mediaQuery.addEventListener("change", syncMobileState);
+    return () => mediaQuery.removeEventListener("change", syncMobileState);
+  }, []);
 
   useEffect(() => {
+    if (isMobileWorkspace) return;
+    localStorage.setItem(SHOW_INBOX_KEY, String(showInbox));
+  }, [isMobileWorkspace, showInbox]);
+
+  useEffect(() => {
+    if (isMobileWorkspace) return;
     localStorage.setItem(SHOW_BOARD_KEY, String(showBoard));
-  }, [showBoard]);
+  }, [isMobileWorkspace, showBoard]);
+
+  useEffect(() => {
+    if (isMobileWorkspace) {
+      if (showInbox && showBoard) setShowBoard(false);
+      if (!showInbox && !showBoard) setShowInbox(true);
+      return;
+    }
+    setShowInbox(readBoolStorage(SHOW_INBOX_KEY, true));
+    setShowBoard(readBoolStorage(SHOW_BOARD_KEY, true));
+  }, [isMobileWorkspace, showBoard, showInbox]);
 
   useEffect(() => {
     localStorage.setItem(PANEL_KEY, String(leftPanelWidth));
@@ -382,11 +405,21 @@ export function BoardWorkspacePage() {
   }
 
   function toggleInbox() {
+    if (isMobileWorkspace) {
+      setShowInbox(true);
+      setShowBoard(false);
+      return;
+    }
     if (showInbox && !showBoard) return;
     setShowInbox((value) => !value);
   }
 
   function toggleBoard() {
+    if (isMobileWorkspace) {
+      setShowInbox(false);
+      setShowBoard(true);
+      return;
+    }
     if (showBoard && !showInbox) return;
     setShowBoard((value) => !value);
   }
@@ -445,17 +478,17 @@ export function BoardWorkspacePage() {
   }
 
   return (
-    <main className="h-[calc(100vh-56px)] overflow-hidden bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] p-4">
+    <main className="h-[calc(100vh-56px)] overflow-hidden bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] p-0 md:p-4">
       {error && <div className="absolute left-4 right-4 top-16 z-50 rounded-md border border-red-300/50 bg-red-500/20 px-3 py-2 text-sm text-red-100 shadow-xl backdrop-blur">{error}</div>}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           ref={workspaceRef}
-          className="relative flex h-full gap-3"
+          className="relative flex h-full gap-0 md:gap-3"
         >
         <section
-          className={`flex h-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-[#0f2a57]/95 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-black/20 transition-all duration-300 ${showInbox ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
-          style={showInbox && showBoard ? { width: `${leftPanelWidth}%` } : showInbox ? { width: "100%" } : undefined}
+          className={`flex h-full flex-col overflow-hidden rounded-none border-0 bg-[#0f2a57]/95 text-slate-100 shadow-none ring-0 transition-all duration-300 md:rounded-3xl md:border md:border-white/20 md:shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] md:ring-1 md:ring-black/20 ${showInbox ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
+          style={isMobileWorkspace ? (showInbox ? { width: "100%" } : undefined) : showInbox && showBoard ? { width: `${leftPanelWidth}%` } : showInbox ? { width: "100%" } : undefined}
         >
           {showInbox && (
             <>
@@ -551,7 +584,7 @@ export function BoardWorkspacePage() {
           </button>
         )}
 
-        <section className={`flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/20 bg-[#51306f]/90 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-black/20 transition-all duration-300 ${showBoard ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}>
+        <section className={`flex h-full min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[#51306f]/90 text-slate-100 shadow-none ring-0 transition-all duration-300 md:rounded-3xl md:border md:border-white/20 md:shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] md:ring-1 md:ring-black/20 ${showBoard ? "flex-1 opacity-100" : "pointer-events-none w-0 flex-none opacity-0"}`}>
           {showBoard && (
             <>
               <header className="sticky top-0 z-20 border-b border-white/15 bg-[#563777] px-4 py-3">
@@ -584,13 +617,13 @@ export function BoardWorkspacePage() {
                 )}
               </header>
 
-              <div className="kanban-scroll flex flex-1 items-start gap-4 overflow-x-auto overflow-y-auto p-4 pb-24">
+              <div className="kanban-scroll flex flex-1 items-start gap-4 overflow-x-auto overflow-y-auto p-3 pb-24 md:p-4 md:pb-24">
                 <SortableContext items={filteredBoardLists.map((list) => `list-${list.id}`)} strategy={horizontalListSortingStrategy}>
                   {filteredBoardLists.map((list, index) => (
                     <BoardListColumn key={list.id} list={list} cards={list.cards} accentClass={LIST_ACCENTS[index % LIST_ACCENTS.length]} />
                   ))}
                 </SortableContext>
-                <div className="w-[320px] shrink-0">
+                <div className="w-[min(320px,calc(100vw-24px))] shrink-0 md:w-[320px]">
                   {isListComposerOpen ? (
                     <form onSubmit={submitList} className="rounded-2xl bg-[#111806] p-3 shadow-xl">
                       <Input
@@ -647,19 +680,19 @@ export function BoardWorkspacePage() {
         </DragOverlay>
       </DndContext>
 
-      <div className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-2xl border border-white/15 bg-[#11151f]/85 p-2 shadow-2xl backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" className={`h-10 rounded-xl px-4 text-base ${showInbox ? "bg-blue-500/25 text-blue-100" : "text-slate-200 hover:bg-white/10"}`} onClick={toggleInbox}>
+      <div className="fixed bottom-0 left-0 right-0 z-30 rounded-t-2xl border border-x-0 border-b-0 border-white/15 bg-[#11151f]/90 p-1.5 shadow-2xl backdrop-blur-md md:bottom-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:rounded-2xl md:border md:p-2">
+        <div className="grid grid-cols-3 items-center gap-1.5 md:flex md:gap-2">
+          <Button variant="ghost" className={`h-12 rounded-xl px-3 text-base md:h-10 md:px-4 ${showInbox ? "bg-blue-500/25 text-blue-100" : "text-slate-200 hover:bg-white/10"}`} onClick={toggleInbox}>
             <Inbox className="h-4 w-4" />
-            Inbox
+            <span className="hidden md:inline">Inbox</span>
           </Button>
-          <Button variant="ghost" className={`h-10 rounded-xl px-4 text-base ${showBoard ? "bg-blue-500/25 text-blue-100" : "text-slate-200 hover:bg-white/10"}`} onClick={toggleBoard}>
+          <Button variant="ghost" className={`h-12 rounded-xl px-3 text-base md:h-10 md:px-4 ${showBoard ? "bg-blue-500/25 text-blue-100" : "text-slate-200 hover:bg-white/10"}`} onClick={toggleBoard}>
             <LayoutPanelLeft className="h-4 w-4" />
-            Board
+            <span className="hidden md:inline">Board</span>
           </Button>
-          <Button variant="ghost" className="h-10 rounded-xl px-4 text-base text-slate-200 hover:bg-white/10" onClick={() => setIsBoardSwitchOpen(true)}>
+          <Button variant="ghost" className="h-12 rounded-xl px-3 text-base text-slate-200 hover:bg-white/10 md:h-10 md:px-4" onClick={() => setIsBoardSwitchOpen(true)}>
             <SwitchCamera className="h-4 w-4" />
-            Switch Boards
+            <span className="hidden md:inline">Switch Boards</span>
           </Button>
         </div>
       </div>
