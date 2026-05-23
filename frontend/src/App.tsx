@@ -11,8 +11,10 @@ export default function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/boards" element={<BoardsPage />} />
-        <Route path="/boards/:boardId" element={<BoardWorkspacePage />} />
+        <Route path="/:username/boards" element={<BoardsPage />} />
+        <Route path="/:username/boards/:boardId" element={<BoardWorkspacePage />} />
+        <Route path="/boards" element={<Navigate to="/" replace />} />
+        <Route path="/boards/:boardId" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

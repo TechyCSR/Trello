@@ -11,7 +11,7 @@ import {
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { ArrowLeft, Filter, Loader2, Plus, Search, Share2, Users } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BoardListColumn } from "@/components/BoardListColumn";
 import { CardDialog } from "@/components/CardDialog";
@@ -20,6 +20,7 @@ import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { findUserBySlug, toUserSlug } from "@/lib/userSlug";
 import { useAppStore } from "@/store/useAppStore";
 import type { BoardList, Card } from "@/types";
 
@@ -29,8 +30,11 @@ type DragState =
   | null;
 
 export function BoardWorkspacePage() {
-  const { boardId } = useParams();
+  const { boardId, username = "" } = useParams();
+  const navigate = useNavigate();
   const {
+    users,
+    currentUser,
     activeBoard,
     isLoadingBoard,
     error,
@@ -41,11 +45,24 @@ export function BoardWorkspacePage() {
     setFilters,
     moveCard,
     reorderLists,
+    setCurrentUser,
   } = useAppStore();
   const [listTitle, setListTitle] = useState("");
   const [boardTitle, setBoardTitle] = useState("");
   const [activeDrag, setActiveDrag] = useState<DragState>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  useEffect(() => {
+    if (!users.length || !username) return;
+    const matched = findUserBySlug(users, username);
+    if (matched && currentUser?.id !== matched.id) {
+      setCurrentUser(matched.id);
+      return;
+    }
+    if (!matched && currentUser) {
+      navigate(`/${toUserSlug(currentUser.name)}/boards`, { replace: true });
+    }
+  }, [users, username, currentUser, setCurrentUser, navigate]);
 
   useEffect(() => {
     if (boardId) void fetchBoard(Number(boardId));
@@ -136,13 +153,15 @@ export function BoardWorkspacePage() {
     );
   }
 
+  const routeUserSlug = currentUser ? toUserSlug(currentUser.name) : username;
+
   return (
     <main className="mx-auto max-w-[1600px] px-4 py-4">
       {error && <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button asChild variant="ghost" size="icon" aria-label="Back to boards">
-            <Link to="/boards">
+            <Link to={`/${routeUserSlug}/boards`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

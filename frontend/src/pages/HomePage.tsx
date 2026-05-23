@@ -2,8 +2,13 @@ import { ArrowRight, CheckCircle2, Clock3, LockKeyhole, MoveRight } from "lucide
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { toUserSlug } from "@/lib/userSlug";
+import { useAppStore } from "@/store/useAppStore";
 
 export function HomePage() {
+  const { currentUser } = useAppStore();
+  const boardsPath = `/${toUserSlug(currentUser?.name ?? "techycsr")}/boards`;
+
   return (
     <main>
       <section className="relative min-h-[calc(100vh-56px)] overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#eef8f7_58%,#ffffff_100%)]">
@@ -21,13 +26,13 @@ export function HomePage() {
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button asChild size="default">
-                <Link to="/boards">
+                <Link to={boardsPath}>
                   Open Boards
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link to="/boards">
+                <Link to={boardsPath}>
                   View workspace
                   <MoveRight className="h-4 w-4" />
                 </Link>

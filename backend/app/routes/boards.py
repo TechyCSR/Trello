@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
@@ -33,12 +33,37 @@ def list_boards(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> list[dict]:
-    query = (
-        db.query(Board)
-        .options(*board_options())
+    accessible_board_ids = (
+        db.query(Board.id)
         .outerjoin(BoardMember, BoardMember.board_id == Board.id)
         .filter(or_(Board.is_public.is_(True), Board.owner_id == user.id, BoardMember.user_id == user.id))
         .distinct()
+        .subquery()
+    )
+
+    list_counts = (
+        db.query(BoardList.board_id.label("board_id"), func.count(BoardList.id).label("list_count"))
+        .group_by(BoardList.board_id)
+        .subquery()
+    )
+    card_counts = (
+        db.query(BoardList.board_id.label("board_id"), func.count(Card.id).label("card_count"))
+        .join(Card, Card.list_id == BoardList.id)
+        .filter(Card.archived.is_(False))
+        .group_by(BoardList.board_id)
+        .subquery()
+    )
+
+    query = (
+        db.query(
+            Board,
+            func.coalesce(list_counts.c.list_count, 0).label("list_count"),
+            func.coalesce(card_counts.c.card_count, 0).label("card_count"),
+        )
+        .options(selectinload(Board.members).selectinload(BoardMember.user))
+        .join(accessible_board_ids, accessible_board_ids.c.id == Board.id)
+        .outerjoin(list_counts, list_counts.c.board_id == Board.id)
+        .outerjoin(card_counts, card_counts.c.board_id == Board.id)
     )
     if q:
         query = query.filter(Board.title.ilike(f"%{q}%"))
@@ -46,8 +71,8 @@ def list_boards(
         query = query.filter(Board.is_public.is_(True))
     if visibility == "private":
         query = query.filter(Board.is_public.is_(False))
-    boards = query.order_by(Board.updated_at.desc(), Board.id.desc()).all()
-    return [board_summary(board) for board in boards]
+    rows = query.order_by(Board.updated_at.desc(), Board.id.desc()).all()
+    return [board_summary(board, int(list_count), int(card_count)) for board, list_count, card_count in rows]
 
 
 @router.post("", response_model=BoardDetail, status_code=status.HTTP_201_CREATED)

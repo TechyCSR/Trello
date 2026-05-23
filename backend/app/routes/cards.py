@@ -79,6 +79,10 @@ def create_card(payload: CardCreate, db: Session = Depends(get_db), user: User =
     )
     db.add(card)
     db.flush()
+    if card.created_at is None:
+        card.created_at = datetime.now(timezone.utc)
+    if card.updated_at is None:
+        card.updated_at = card.created_at
     sync_card_links(db, card, payload.label_ids, payload.member_ids)
     db.commit()
     return card_read(card_loaded(db, card.id))
