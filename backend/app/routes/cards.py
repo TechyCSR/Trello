@@ -5,9 +5,9 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Board, BoardList, BoardMember, Card, CardLabel, CardMember, Checklist, ChecklistItem, Label, User
+from app.models import Board, BoardList, Card, CardActivity, CardLabel, CardMember, Checklist, ChecklistItem, Label, User
 from app.routes.deps import board_share_token, current_user
-from app.schemas.card import CardCreate, CardMove, CardRead, CardSearchResult, CardUpdate
+from app.schemas.card import CardCommentCreate, CardCreate, CardMove, CardRead, CardSearchResult, CardUpdate
 from app.services.security import ensure_board_access, ensure_board_editor
 from app.services.serializers import card_read
 
@@ -20,6 +20,7 @@ def card_options():
         selectinload(Card.label_links).selectinload(CardLabel.label),
         selectinload(Card.member_links).selectinload(CardMember.user),
         selectinload(Card.checklists).selectinload(Checklist.items),
+        selectinload(Card.activities).selectinload(CardActivity.user),
     )
 
 
@@ -33,10 +34,13 @@ def validate_card_relations(db: Session, board: Board, label_ids: list[int] | No
         if found != len(set(label_ids)):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more labels do not belong to this board")
     if member_ids is not None:
-        allowed = {board.owner_id}
-        allowed.update(row[0] for row in db.query(BoardMember.user_id).filter(BoardMember.board_id == board.id).all())
-        if not set(member_ids).issubset(allowed):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more users are not board members")
+        found = db.query(User.id).filter(User.id.in_(member_ids)).count()
+        if found != len(set(member_ids)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more users do not exist")
+
+
+def add_activity(db: Session, board_id: int, card_id: int | None, user_id: int | None, action: str, detail: str | None = None) -> None:
+    db.add(CardActivity(board_id=board_id, card_id=card_id, user_id=user_id, action=action, detail=detail))
 
 
 def sync_card_links(db: Session, card: Card, label_ids: list[int] | None, member_ids: list[int] | None) -> None:
@@ -89,6 +93,7 @@ def create_card(
     if card.updated_at is None:
         card.updated_at = card.created_at
     sync_card_links(db, card, payload.label_ids, payload.member_ids)
+    add_activity(db, board.id, card.id, user.id, "created", f"added this card to {board_list.title}")
     db.commit()
     return card_read(card_loaded(db, card.id))
 
@@ -108,6 +113,7 @@ def move_card(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cards can only move inside the same board")
     card.list_id = target_list.id
     card.position = payload.position
+    add_activity(db, source_board.id, card.id, user.id, "moved", f"moved this card to {target_list.title}")
     db.commit()
     return card_read(card_loaded(db, card.id))
 
@@ -124,11 +130,40 @@ def update_card(
     board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
     validate_card_relations(db, board, payload.label_ids, payload.member_ids)
     changed_fields = payload.model_fields_set
+    activity_details: list[str] = []
     for field in ("title", "description", "due_date", "archived"):
         if field in changed_fields:
+            old_value = getattr(card, field)
             setattr(card, field, getattr(payload, field))
+            if old_value != getattr(payload, field):
+                activity_details.append(f"updated {field.replace('_', ' ')}")
     sync_card_links(db, card, payload.label_ids, payload.member_ids)
+    if payload.label_ids is not None:
+        activity_details.append("updated labels")
+    if payload.member_ids is not None:
+        activity_details.append("updated members")
     sync_checklists(db, card, payload)
+    if payload.checklists is not None:
+        activity_details.append("updated checklist")
+    if payload.archived is True:
+        add_activity(db, board.id, card.id, user.id, "archived", "archived this card")
+    elif activity_details:
+        add_activity(db, board.id, card.id, user.id, "updated", ", ".join(dict.fromkeys(activity_details)))
+    db.commit()
+    return card_read(card_loaded(db, card.id))
+
+
+@router.post("/{card_id}/comments", response_model=CardRead)
+def add_card_comment(
+    card_id: int,
+    payload: CardCommentCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> dict:
+    card = card_loaded(db, card_id)
+    board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
+    add_activity(db, board.id, card.id, user.id, "comment", payload.detail.strip())
     db.commit()
     return card_read(card_loaded(db, card.id))
 
@@ -141,7 +176,9 @@ def delete_card(
     share_token: str | None = Depends(board_share_token),
 ) -> None:
     card = card_loaded(db, card_id)
-    ensure_board_editor(db, card.list.board if card else None, user, share_token)
+    board = ensure_board_editor(db, card.list.board if card else None, user, share_token)
+    add_activity(db, board.id, card.id if card else None, user.id, "deleted", f"deleted {card.title if card else 'this card'}")
+    db.flush()
     db.delete(card)
     db.commit()
 

@@ -25,6 +25,16 @@ export type Checklist = {
   items: ChecklistItem[];
 };
 
+export type CardActivity = {
+  id: number;
+  board_id: number;
+  card_id: number | null;
+  user: User | null;
+  action: string;
+  detail: string | null;
+  created_at: string;
+};
+
 export type Card = {
   id: number;
   list_id: number;
@@ -39,6 +49,7 @@ export type Card = {
   labels: Label[];
   members: User[];
   checklists: Checklist[];
+  activities: CardActivity[];
 };
 
 export type BoardList = {

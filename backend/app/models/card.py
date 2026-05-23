@@ -24,6 +24,7 @@ class Card(Base):
     label_links = relationship("CardLabel", back_populates="card", cascade="all, delete-orphan")
     member_links = relationship("CardMember", back_populates="card", cascade="all, delete-orphan")
     checklists = relationship("Checklist", back_populates="card", cascade="all, delete-orphan")
+    activities = relationship("CardActivity", back_populates="card", order_by="CardActivity.created_at.desc()")
 
 
 class CardMember(Base):
@@ -58,3 +59,18 @@ class ChecklistItem(Base):
     position: Mapped[float] = mapped_column(Numeric(12, 4), default=0)
 
     checklist = relationship("Checklist", back_populates="items")
+
+
+class CardActivity(Base):
+    __tablename__ = "card_activities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    board_id: Mapped[int] = mapped_column(ForeignKey("boards.id", ondelete="CASCADE"), index=True)
+    card_id: Mapped[int | None] = mapped_column(ForeignKey("cards.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    detail: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    card = relationship("Card", back_populates="activities")
+    user = relationship("User")

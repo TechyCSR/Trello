@@ -3,7 +3,7 @@ import axios from "axios";
 
 import { api, setApiUser } from "@/lib/api";
 import { positionBetween } from "@/lib/utils";
-import type { BoardDetail, BoardList, BoardSummary, Card, User, VisibilityFilter } from "@/types";
+import type { BoardDetail, BoardList, BoardSummary, Card, Label, User, VisibilityFilter } from "@/types";
 
 type Filters = {
   boardQuery: string;
@@ -41,8 +41,10 @@ type AppState = {
   updateList: (listId: number, payload: { title?: string; is_collapsed?: boolean }) => Promise<void>;
   deleteList: (listId: number) => Promise<void>;
   reorderLists: (activeId: number, overId: number) => Promise<void>;
+  createLabel: (boardId: number, name: string, color: string) => Promise<Label | null>;
   createCard: (listId: number, title: string) => Promise<void>;
   updateCard: (cardId: number, payload: Partial<Card> & { label_ids?: number[]; member_ids?: number[] }) => Promise<void>;
+  addCardComment: (cardId: number, detail: string) => Promise<void>;
   deleteCard: (cardId: number) => Promise<void>;
   moveCard: (cardId: number, targetListId: number, targetIndex: number) => Promise<void>;
   setSelectedCard: (card: Card | null) => void;
@@ -289,6 +291,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     await api.patch("/lists/reorder", { board_id: board.id, lists: positioned.map(({ id, position }) => ({ id, position })) });
   },
 
+  async createLabel(boardId, name, color) {
+    const board = get().activeBoard;
+    const { data } = await api.post<Label>("/labels", { board_id: boardId, name, color });
+    set((state) => ({
+      activeBoard: state.activeBoard?.id === boardId ? { ...state.activeBoard, labels: [...state.activeBoard.labels, data] } : state.activeBoard,
+    }));
+    if (!board) return data;
+    return data;
+  },
+
   async createCard(listId, title) {
     const board = get().activeBoard;
     if (!board) return;
@@ -310,6 +322,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       labels: [],
       members: [],
       checklists: [],
+      activities: [],
     };
     set({ activeBoard: replaceCard(board, optimisticCard) });
     try {
@@ -349,6 +362,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!board) return;
     const { data } = await api.patch<Card>(`/cards/${cardId}`, payload);
     const nextBoard = replaceCard(board, data);
+    set({
+      activeBoard: nextBoard,
+      selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,
+    });
+  },
+
+  async addCardComment(cardId, detail) {
+    const board = get().activeBoard;
+    if (!board) return;
+    const { data } = await api.post<Card>(`/cards/${cardId}/comments`, { detail });
+    const nextBoard = replaceCard(get().activeBoard ?? board, data);
     set({
       activeBoard: nextBoard,
       selectedCard: get().selectedCard?.id === cardId ? data : get().selectedCard,

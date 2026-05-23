@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.migrations import ensure_runtime_schema
 from app.db.seed import seed_database
 from app.db.session import Base, SessionLocal, engine
-from app.routes import boards, cards, lists, users
+from app.routes import boards, cards, labels, lists, users
 from app.utils.config import settings
 
 
@@ -20,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(boards.router)
     app.include_router(lists.router)
+    app.include_router(labels.router)
     app.include_router(cards.router)
 
     @app.on_event("startup")

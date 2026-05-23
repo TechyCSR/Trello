@@ -31,6 +31,16 @@ class ChecklistRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CardActivityRead(BaseModel):
+    id: int
+    board_id: int
+    card_id: int | None
+    user: UserRead | None = None
+    action: str
+    detail: str | None = None
+    created_at: datetime
+
+
 class CardRead(BaseModel):
     id: int
     list_id: int
@@ -45,6 +55,7 @@ class CardRead(BaseModel):
     labels: list[LabelRead] = []
     members: list[UserRead] = []
     checklists: list[ChecklistRead] = []
+    activities: list[CardActivityRead] = []
 
 
 class ListRead(BaseModel):
@@ -108,6 +119,16 @@ class CardUpdate(BaseModel):
     label_ids: list[int] | None = None
     member_ids: list[int] | None = None
     checklists: list[ChecklistInput] | None = None
+
+
+class CardCommentCreate(BaseModel):
+    detail: str = Field(min_length=1, max_length=1000)
+
+
+class LabelCreate(BaseModel):
+    board_id: int
+    name: str = Field(min_length=1, max_length=40)
+    color: str = Field(min_length=3, max_length=24)
 
 
 class CardMove(BaseModel):

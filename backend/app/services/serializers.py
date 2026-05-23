@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.models import Board, BoardList, Card, Checklist, Label, User
+from app.models import Board, BoardList, Card, CardActivity, Checklist, Label, User
 
 
 def user_read(user: User) -> dict:
@@ -22,6 +22,18 @@ def checklist_read(checklist: Checklist) -> dict:
     }
 
 
+def activity_read(activity: CardActivity) -> dict:
+    return {
+        "id": activity.id,
+        "board_id": activity.board_id,
+        "card_id": activity.card_id,
+        "user": user_read(activity.user) if activity.user else None,
+        "action": activity.action,
+        "detail": activity.detail,
+        "created_at": activity.created_at,
+    }
+
+
 def card_read(card: Card) -> dict:
     created_at = card.created_at or datetime.now(timezone.utc)
     updated_at = card.updated_at or created_at
@@ -39,6 +51,7 @@ def card_read(card: Card) -> dict:
         "labels": [label_read(link.label) for link in card.label_links],
         "members": [user_read(link.user) for link in card.member_links],
         "checklists": [checklist_read(checklist) for checklist in card.checklists],
+        "activities": [activity_read(activity) for activity in card.activities],
     }
 
 

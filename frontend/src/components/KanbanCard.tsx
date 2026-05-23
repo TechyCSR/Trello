@@ -3,6 +3,7 @@ import { CalendarClock, CheckSquare, MessageSquare } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 
 import { Badge } from "@/components/ui/badge";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import type { Card } from "@/types";
@@ -39,9 +40,12 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
       <div className="mt-3 flex items-center justify-between">
         <div className="flex -space-x-1">
           {card.members.slice(0, 4).map((member) => (
-            <span key={member.id} className="grid h-6 w-6 place-items-center rounded-full border border-white bg-slate-800 text-[10px] font-semibold text-white">
-              {member.avatar}
-            </span>
+            <img
+              key={member.id}
+              src={resolveAvatarUrl(member)}
+              alt={member.name}
+              className="h-6 w-6 rounded-full border border-white bg-slate-800 object-cover"
+            />
           ))}
         </div>
       </div>

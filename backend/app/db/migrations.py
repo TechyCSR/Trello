@@ -180,6 +180,20 @@ def ensure_runtime_schema(engine: Engine) -> None:
         inspector,
         statements,
     )
+    _queue_missing_columns(
+        "card_activities",
+        {
+            "board_id": "INTEGER",
+            "card_id": "INTEGER",
+            "user_id": "INTEGER",
+            "action": "VARCHAR(40)",
+            "detail": "TEXT",
+            "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        },
+        existing_tables,
+        inspector,
+        statements,
+    )
 
     if "boards" in existing_tables:
         index_statements.extend(
@@ -236,6 +250,15 @@ def ensure_runtime_schema(engine: Engine) -> None:
             [
                 "CREATE INDEX IF NOT EXISTS ix_checklist_items_checklist_id ON checklist_items (checklist_id)",
                 "CREATE INDEX IF NOT EXISTS ix_checklist_items_checklist_position ON checklist_items (checklist_id, position)",
+            ]
+        )
+    if "card_activities" in existing_tables:
+        index_statements.extend(
+            [
+                "CREATE INDEX IF NOT EXISTS ix_card_activities_board_id ON card_activities (board_id)",
+                "CREATE INDEX IF NOT EXISTS ix_card_activities_card_id ON card_activities (card_id)",
+                "CREATE INDEX IF NOT EXISTS ix_card_activities_user_id ON card_activities (user_id)",
+                "CREATE INDEX IF NOT EXISTS ix_card_activities_created_at ON card_activities (created_at)",
             ]
         )
 
@@ -425,3 +448,5 @@ def ensure_runtime_schema(engine: Engine) -> None:
         if "cards" in post_tables:
             connection.execute(text("UPDATE cards SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE cards SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))
+        if "card_activities" in post_tables:
+            connection.execute(text("UPDATE card_activities SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))

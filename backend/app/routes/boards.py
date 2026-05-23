@@ -3,7 +3,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Board, BoardList, BoardMember, Card, CardLabel, CardMember, Checklist, User
+from app.models import Board, BoardList, BoardMember, Card, CardActivity, CardLabel, CardMember, Checklist, User
 from app.routes.deps import board_share_token, current_user
 from app.schemas.board import BoardCreate, BoardDetail, BoardSummary, BoardUpdate
 from app.services.board_refs import assign_unique_board_code, assign_unique_share_token
@@ -19,6 +19,7 @@ def board_options():
         selectinload(Board.lists).selectinload(BoardList.cards).selectinload(Card.label_links).selectinload(CardLabel.label),
         selectinload(Board.lists).selectinload(BoardList.cards).selectinload(Card.member_links).selectinload(CardMember.user),
         selectinload(Board.lists).selectinload(BoardList.cards).selectinload(Card.checklists).selectinload(Checklist.items),
+        selectinload(Board.lists).selectinload(BoardList.cards).selectinload(Card.activities).selectinload(CardActivity.user),
         selectinload(Board.labels),
     )
 
