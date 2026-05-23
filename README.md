@@ -111,6 +111,7 @@ VITE_API_URL=https://your-render-service.onrender.com
 Required environment variables:
 
 ```text
+PYTHON_VERSION=3.11.9
 DATABASE_URL=postgresql://...
 CORS_ORIGINS=https://your-vercel-production-domain.vercel.app
 CORS_ORIGIN_REGEX=^https://.*\.vercel\.app$
@@ -118,6 +119,7 @@ AUTO_SEED=true
 ```
 
 Use `CORS_ORIGINS` for exact production/custom domains and `CORS_ORIGIN_REGEX` for Vercel preview deployments.
+Render now defaults new Python services to a very new Python runtime. Keep `PYTHON_VERSION=3.11.9` set, or commit/use `backend/.python-version`, so pinned native dependencies install from prebuilt wheels instead of compiling during deployment.
 
 ### Neon
 

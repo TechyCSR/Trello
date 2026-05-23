@@ -1,4 +1,4 @@
-import { Bell, HelpCircle, Megaphone, PanelsTopLeft, Palette, Search, Share2 } from "lucide-react";
+import { PanelsTopLeft, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -77,55 +77,45 @@ export function Navbar() {
           <span className="text-xl">Trello</span>
         </Link>
 
-        <div className="relative mx-auto hidden w-full max-w-[760px] md:block">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            className="h-10 border-white/20 bg-[#222734] pl-9 text-slate-100 placeholder:text-slate-400"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            onFocus={() => {
-              if (searchResults.length > 0) setIsSearchOpen(true);
-            }}
-            onBlur={() => window.setTimeout(() => setIsSearchOpen(false), 120)}
-          />
-          {isSearchOpen && (
-            <div className="absolute left-0 right-0 top-12 rounded-md border border-white/15 bg-[#202433] p-1 shadow-xl">
-              {searchResults.length > 0 ? (
-                searchResults.map((board) => (
-                  <button
-                    key={board.id}
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/10"
-                    onMouseDown={() => openBoard(board.board_code)}
-                  >
-                    {board.title}
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-slate-400">No matching boards</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 text-slate-300">
+        <div className="mx-auto hidden w-full max-w-[900px] items-center gap-3 md:flex">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              className="h-10 border-white/20 bg-[#222734] pl-9 text-slate-100 placeholder:text-slate-400"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setIsSearchOpen(true);
+              }}
+              onBlur={() => window.setTimeout(() => setIsSearchOpen(false), 120)}
+            />
+            {isSearchOpen && (
+              <div className="absolute left-0 right-0 top-12 rounded-md border border-white/15 bg-[#202433] p-1 shadow-xl">
+                {searchResults.length > 0 ? (
+                  searchResults.map((board) => (
+                    <button
+                      key={board.id}
+                      className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/10"
+                      onMouseDown={() => openBoard(board.board_code)}
+                    >
+                      {board.title}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-slate-400">No matching boards</div>
+                )}
+              </div>
+            )}
+          </div>
           <Button className="bg-blue-600 text-white hover:bg-blue-500" onClick={openCreateBoard}>
             Create
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Announcements">
-            <Megaphone className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Notifications">
-            <Bell className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Theme controls">
-            <Palette className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Share controls">
-            <Share2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:bg-white/10" aria-label="Help">
-            <HelpCircle className="h-4 w-4" />
+        </div>
+
+        <div className="ml-auto flex items-center gap-2 text-slate-300">
+          <Button className="bg-blue-600 text-white hover:bg-blue-500 md:hidden" onClick={openCreateBoard}>
+            Create
           </Button>
           <div className="relative">
             <button

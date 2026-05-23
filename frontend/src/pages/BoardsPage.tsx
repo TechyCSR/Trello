@@ -107,15 +107,10 @@ export function BoardsPage() {
         )}
 
         <section className="mx-auto max-w-[1160px]">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-5">
             <div>
               <h2 className="text-2xl font-semibold text-slate-200">Your workspaces</h2>
               <p className="text-sm text-slate-400">Trello Workspace</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-md bg-white/10 px-3 py-2 text-sm text-slate-100">Boards</button>
-              <button className="rounded-md bg-white/10 px-3 py-2 text-sm text-slate-100">Members</button>
-              <button className="rounded-md bg-white/10 px-3 py-2 text-sm text-slate-100">Settings</button>
             </div>
           </div>
 
