@@ -2,13 +2,14 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronsLeft, ChevronsRight, Loader2, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useState } from "react";
 
 import { KanbanCard } from "@/components/KanbanCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { showSuccess } from "@/store/useToastStore";
 import type { BoardList, Card } from "@/types";
 
 export function BoardListColumn({
@@ -20,12 +21,29 @@ export function BoardListColumn({
   cards: Card[];
   accentClass?: string;
 }) {
-  const { createCard, deleteList, updateList } = useAppStore();
+  const { createCard, deleteList, updateList, updateCard, archiveCard } = useAppStore();
   const [title, setTitle] = useState("");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [editing, setEditing] = useState(false);
   const [listTitle, setListTitle] = useState(list.title);
+  const [doneIds, setDoneIds] = useState<number[]>([]);
+
+  const toggleDone = useCallback((card: Card) => {
+    const isDone = doneIds.includes(card.id);
+    if (isDone) {
+      setDoneIds((prev) => prev.filter((id) => id !== card.id));
+      return;
+    }
+    // Mark done: show strikethrough for 900ms then archive instantly
+    setDoneIds((prev) => [...prev, card.id]);
+    window.setTimeout(() => {
+      showSuccess("Card archived", `"${card.title}" moved to archived cards`);
+      // Archive immediately in UI, then sync with server
+      archiveCard({ ...card, archived: true });
+      void updateCard(card.id, { archived: true });
+    }, 900);
+  }, [doneIds, updateCard, archiveCard]);
   const cardIds = useMemo(() => cards.map((card) => `card-${card.id}`), [cards]);
   const { setNodeRef: setDropRef } = useDroppable({
     id: `list-drop-${list.id}`,
@@ -151,7 +169,12 @@ export function BoardListColumn({
       <div ref={setDropRef} className="kanban-scroll max-h-[calc(100vh-325px)] min-h-12 space-y-2 overflow-y-auto px-2 pb-2 pt-2">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
-            <KanbanCard key={card.id} card={card} />
+            <KanbanCard
+              key={card.id}
+              card={card}
+              isDone={doneIds.includes(card.id)}
+              onToggleDone={() => toggleDone(card)}
+            />
           ))}
         </SortableContext>
         {!cards.length && <div className="rounded-xl border border-dashed border-white/30 bg-black/15 p-3 text-center text-sm text-slate-200">Drop cards here</div>}

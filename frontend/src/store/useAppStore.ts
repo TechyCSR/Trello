@@ -40,6 +40,8 @@ type AppState = {
   starredBoardIds: number[];
   recentBoardIds: number[];
   activeBoard: BoardDetail | null;
+  archivedCards: Card[];
+  archivedCardsBoardId: number | null;
   selectedCard: Card | null;
   isCreateBoardModalOpen: boolean;
   isLoadingBoards: boolean;
@@ -68,6 +70,9 @@ type AppState = {
   moveCard: (cardId: number, targetListId: number, targetIndex: number) => Promise<void>;
   setSelectedCard: (card: Card | null) => void;
   setFilters: (filters: Partial<Filters>) => void;
+  archiveCard: (card: Card) => void;
+  fetchArchivedCards: (boardId: number, force?: boolean) => Promise<Card[]>;
+  unarchiveCard: (cardId: number) => Promise<void>;
 };
 
 const storedUserId = Number(localStorage.getItem("flowboard:userId")) || null;
@@ -146,6 +151,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   starredBoardIds: readStarredBoards(storedUserId),
   recentBoardIds: readRecentBoards(storedUserId),
   activeBoard: null,
+  archivedCards: [],
+  archivedCardsBoardId: null,
   selectedCard: null,
   isCreateBoardModalOpen: false,
   isLoadingBoards: false,
@@ -181,6 +188,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       currentUser: user,
       activeBoard: null,
+      archivedCards: [],
+      archivedCardsBoardId: null,
       selectedCard: null,
       starredBoardIds: readStarredBoards(userId),
       recentBoardIds: readRecentBoards(userId),
@@ -233,7 +242,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { data } = await api.get<BoardDetail>(`/boards/${boardRef}`, { signal: boardController.signal });
       if (token !== boardRequestToken) return;
       get().recordRecentBoard(data.id);
-      set({ activeBoard: { ...data, lists: sortLists(data.lists) }, isLoadingBoard: false });
+      set({ activeBoard: { ...data, lists: sortLists(data.lists) }, archivedCardsBoardId: null, isLoadingBoard: false });
+      // Preload archived cards in background
+      void get().fetchArchivedCards(data.id);
     } catch (error) {
       if (axios.isCancel(error)) return;
       if (token !== boardRequestToken) return;
@@ -252,11 +263,44 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async updateBoard(boardId, payload) {
-    const { data } = await api.patch<BoardDetail>(`/boards/${boardId}`, payload);
+    // Optimistic update — apply immediately so UI responds instantly
+    const snapshot = get().activeBoard;
     set((state) => ({
-      activeBoard: state.activeBoard?.id === boardId ? { ...data, lists: sortLists(data.lists) } : state.activeBoard,
-      boards: state.boards.map((board) => (board.id === boardId ? data : board)),
+      activeBoard:
+        state.activeBoard?.id === boardId
+          ? { ...state.activeBoard, ...payload }
+          : state.activeBoard,
+      boards: state.boards.map((board) =>
+        board.id === boardId ? { ...board, ...payload } : board,
+      ),
     }));
+    try {
+      const { data } = await api.patch<BoardDetail>(`/boards/${boardId}`, payload);
+      set((state) => ({
+        activeBoard:
+          state.activeBoard?.id === boardId
+            ? {
+                ...data,
+                color: "color" in payload && state.activeBoard.color !== payload.color ? state.activeBoard.color : data.color,
+                lists: sortLists(state.activeBoard?.lists ?? data.lists),
+              }
+            : state.activeBoard,
+        boards: state.boards.map((board) =>
+          board.id === boardId
+            ? { ...data, color: "color" in payload && board.color !== payload.color ? board.color : data.color }
+            : board,
+        ),
+      }));
+    } catch (error) {
+      set((state) => {
+        const newerColorExists = "color" in payload && state.activeBoard?.id === boardId && state.activeBoard.color !== payload.color;
+        return {
+          activeBoard: newerColorExists ? state.activeBoard : snapshot,
+          boards: newerColorExists ? state.boards : state.boards.map((board) => (snapshot && board.id === boardId ? { ...board, ...snapshot } : board)),
+        };
+      });
+      showError("Could not update board", errorDetail(error));
+    }
   },
 
   async deleteBoard(boardId) {
@@ -492,5 +536,59 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setFilters(filters) {
     set((state) => ({ filters: { ...state.filters, ...filters } }));
+  },
+
+  archiveCard(card: Card) {
+    const board = get().activeBoard;
+    // Add to archived cards and remove from board immediately
+    set({
+      archivedCards: [card, ...get().archivedCards.filter((c) => c.id !== card.id)],
+      archivedCardsBoardId: board?.id ?? get().archivedCardsBoardId,
+      activeBoard: board
+        ? { ...board, lists: board.lists.map((l) => ({ ...l, cards: l.cards.filter((c) => c.id !== card.id) })) }
+        : board,
+    });
+  },
+
+  async fetchArchivedCards(boardId, force = false) {
+    if (!force && get().archivedCardsBoardId === boardId) {
+      return get().archivedCards;
+    }
+    try {
+      const { data } = await api.get<Card[]>(`/boards/${boardId}/archived-cards`);
+      set({ archivedCards: data, archivedCardsBoardId: boardId });
+      return data;
+    } catch {
+      set({ archivedCards: [], archivedCardsBoardId: boardId });
+      return [];
+    }
+  },
+
+  async unarchiveCard(cardId) {
+    const board = get().activeBoard;
+    if (!board) return;
+    // Find the card in archivedCards
+    const card = get().archivedCards.find((c) => c.id === cardId);
+    if (!card) return;
+    // Optimistic update: remove from archivedCards and add to board immediately
+    const unarchivedCard = { ...card, archived: false };
+    set({
+      archivedCards: get().archivedCards.filter((c) => c.id !== cardId),
+      archivedCardsBoardId: board.id,
+      activeBoard: replaceCard(board, unarchivedCard),
+    });
+    try {
+      const { data } = await api.patch<Card>(`/cards/${cardId}`, { archived: false });
+      const current = get().activeBoard;
+      if (current) set({ activeBoard: replaceCard(current, data) });
+    } catch (error) {
+      // Rollback: add back to archivedCards and remove from board
+      set({
+        archivedCards: [...get().archivedCards, card],
+        archivedCardsBoardId: board.id,
+        activeBoard: board,
+      });
+      showError("Could not restore card", errorDetail(error));
+    }
   },
 }));

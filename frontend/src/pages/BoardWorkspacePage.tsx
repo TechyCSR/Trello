@@ -1,9 +1,11 @@
 import {
   closestCorners,
+  CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  pointerWithin,
   PointerSensor,
   useDroppable,
   useSensor,
@@ -18,6 +20,7 @@ import {
   Loader2,
   PanelLeftClose,
   Plus,
+  Settings,
   SquarePen,
   SwitchCamera,
   X,
@@ -28,6 +31,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { BoardListColumn } from "@/components/BoardListColumn";
+import { BoardSettingsPanel } from "@/components/BoardSettingsPanel";
 import { CardDialog } from "@/components/CardDialog";
 import { CardCoverBanner, CardFace } from "@/components/KanbanCard";
 import { getBoardBackground } from "@/lib/boardBackgrounds";
@@ -37,6 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { findUserBySlug, toUserSlug } from "@/lib/userSlug";
 import { useAppStore } from "@/store/useAppStore";
+import { showSuccess } from "@/store/useToastStore";
 import type { BoardList, Card } from "@/types";
 
 type DragState =
@@ -63,6 +68,16 @@ function readNumberStorage(key: string, fallback: number) {
 }
 
 const LIST_ACCENTS = ["bg-[#4e2a6f]", "bg-[#614700]", "bg-[#123d77]", "bg-[#1c2d0b]", "bg-[#6e224f]", "bg-[#2f3550]"];
+
+// Custom collision detection: prioritize pointerWithin for empty droppables,
+// then fall back to closestCorners for sortable reordering
+const customCollision: CollisionDetection = (args) => {
+  // First try pointerWithin - this works even for empty droppables
+  const pointer = pointerWithin(args);
+  if (pointer.length > 0) return pointer;
+  // Fall back to closestCorners for sorting between items
+  return closestCorners(args);
+};
 
 function InboxCardRow({
   card,
@@ -199,6 +214,7 @@ export function BoardWorkspacePage() {
     setCurrentUser,
     setSelectedCard,
     updateCard,
+    archiveCard,
   } = useAppStore();
   const [listTitle, setListTitle] = useState("");
   const [inboxCardTitle, setInboxCardTitle] = useState("");
@@ -208,6 +224,7 @@ export function BoardWorkspacePage() {
   const [isListComposerOpen, setIsListComposerOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<DragState>(null);
   const [isBoardSwitchOpen, setIsBoardSwitchOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(() => readBoolStorage(SHOW_INBOX_KEY, true));
   const [showBoard, setShowBoard] = useState(() => readBoolStorage(SHOW_BOARD_KEY, true));
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => readNumberStorage(PANEL_KEY, 33));
@@ -390,10 +407,19 @@ export function BoardWorkspacePage() {
     }
   }
 
-  function toggleInboxDone(cardId: number) {
-    setInboxDoneIds((current) =>
-      current.includes(cardId) ? current.filter((id) => id !== cardId) : [...current, cardId],
-    );
+  function toggleInboxDone(card: Card) {
+    const isDone = inboxDoneIds.includes(card.id);
+    if (isDone) {
+      setInboxDoneIds((current) => current.filter((id) => id !== card.id));
+      return;
+    }
+    setInboxDoneIds((current) => [...current, card.id]);
+    window.setTimeout(() => {
+      showSuccess("Card archived", `"${card.title}" moved to archived cards`);
+      // Archive immediately in UI, then sync with server
+      archiveCard({ ...card, archived: true });
+      void updateCard(card.id, { archived: true });
+    }, 900);
   }
 
   async function commitBoardTitle() {
@@ -470,7 +496,7 @@ export function BoardWorkspacePage() {
       const parent = activeBoard.lists.find((item) => item.id === list.id);
       targetIndex = parent?.cards.length ?? list.cards.length;
     }
-    if (overData?.type === "inbox-drop") {
+    if (overData?.type === "inbox-drop" || over.id === "inbox-drop") {
       targetListId = inboxList.id;
       targetIndex = inboxList.cards.length;
     }
@@ -504,12 +530,13 @@ export function BoardWorkspacePage() {
 
   return (
     <main className="h-[calc(100vh-56px)] overflow-hidden bg-[radial-gradient(circle_at_18%_0%,_#2a2459_0%,_#4f2f77_34%,_#7e4686_66%,_#93548b_100%)] p-0 md:p-4">
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={customCollision} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           ref={workspaceRef}
           className="relative flex h-full gap-0 md:gap-3"
         >
         <section
+          ref={inboxDrop.setNodeRef}
           className={`flex h-full flex-col overflow-hidden rounded-none border-0 bg-[#0f2a57]/95 text-slate-100 shadow-none ring-0 transition-all duration-300 md:rounded-3xl md:border md:border-white/20 md:shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] md:ring-1 md:ring-black/20 ${showInbox ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
           style={isMobileWorkspace ? (showInbox ? { width: "100%" } : undefined) : showInbox && showBoard ? { width: `${leftPanelWidth}%` } : showInbox ? { width: "100%" } : undefined}
         >
@@ -551,7 +578,7 @@ export function BoardWorkspacePage() {
                   )}
                 </form>
               </header>
-              <div ref={inboxDrop.setNodeRef} className="kanban-scroll flex-1 space-y-2 overflow-y-auto p-3">
+              <div className="kanban-scroll flex-1 space-y-2 overflow-y-auto p-3">
                 <SortableContext items={filteredInboxCards.map((card) => `card-${card.id}`)} strategy={verticalListSortingStrategy}>
                   {filteredInboxCards.map((card) => {
                     const isDone = inboxDoneIds.includes(card.id);
@@ -572,14 +599,18 @@ export function BoardWorkspacePage() {
                           setEditingInboxCardId(null);
                           setEditingInboxTitle("");
                         }}
-                        onToggleDone={() => toggleInboxDone(card.id)}
+                        onToggleDone={() => toggleInboxDone(card)}
                         onOpenDetails={() => setSelectedCard(card)}
                         isSaving={savingInboxCardId === card.id}
                       />
                     );
                   })}
                 </SortableContext>
-                {!filteredInboxCards.length && <div className="rounded-xl border border-dashed border-white/30 bg-black/20 p-4 text-center text-sm text-slate-300">Drop cards here</div>}
+                {!filteredInboxCards.length && (
+                  <div className="flex min-h-[80px] items-center justify-center rounded-xl border border-dashed border-white/30 bg-black/20 p-4 text-center text-sm text-slate-300">
+                    Drop cards here
+                  </div>
+                )}
               </div>
               <div className="border-t border-white/15 p-3">
                 <div className="flex items-center justify-between rounded-full border border-white/15 bg-black/20 px-3 py-2 text-sm text-slate-300">
@@ -627,9 +658,9 @@ export function BoardWorkspacePage() {
         >
           {showBoard && (
             <>
-              <header className="sticky top-0 z-20 border-b border-white/15 bg-black/30 px-4 py-3 backdrop-blur-sm">
+              <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-white/15 bg-black/30 px-4 py-3 backdrop-blur-sm">
                 {isEditingBoardTitle ? (
-                  <div className="flex max-w-md items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
                     <Input
                       className="h-11 min-w-28 max-w-[min(520px,70vw)] rounded-lg border-blue-300/80 bg-[#1f2330] px-3 text-2xl font-semibold text-slate-100 shadow-none placeholder:text-slate-300 focus-visible:ring-2 focus-visible:ring-blue-300"
                       style={{ width: `${Math.min(Math.max(boardTitle.length + 2, 8), 32)}ch` }}
@@ -648,13 +679,22 @@ export function BoardWorkspacePage() {
                 ) : (
                   <button
                     type="button"
-                    className="min-h-11 max-w-md truncate rounded-lg px-3 text-left text-2xl font-semibold text-slate-100 transition hover:bg-black/15"
+                    className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 text-left text-2xl font-semibold text-slate-100 transition hover:bg-black/15"
                     onDoubleClick={() => setIsEditingBoardTitle(true)}
                     aria-label="Edit board name"
                   >
                     {activeBoard.title}
                   </button>
                 )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 gap-1.5 border border-white/10 bg-black/20 text-slate-200 hover:bg-white/10"
+                  onClick={() => setIsSettingsOpen((v) => !v)}
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
               </header>
 
               <div className="kanban-scroll flex flex-1 items-start gap-4 overflow-x-auto overflow-y-auto p-3 pb-24 md:p-4 md:pb-24">
@@ -709,6 +749,15 @@ export function BoardWorkspacePage() {
             </>
           )}
         </section>
+
+        {isSettingsOpen && (
+          <div
+            className="flex h-full shrink-0 flex-col overflow-hidden transition-all duration-300"
+            style={{ width: "300px" }}
+          >
+            <BoardSettingsPanel onClose={() => setIsSettingsOpen(false)} />
+          </div>
+        )}
         </div>
         <DragOverlay dropAnimation={null}>
           {activeDrag?.type === "card" ? (

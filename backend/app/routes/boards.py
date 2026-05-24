@@ -6,9 +6,10 @@ from app.db.session import get_db
 from app.models import Board, BoardList, BoardMember, Card, CardActivity, CardLabel, CardMember, Checklist, User
 from app.routes.deps import board_share_token, current_user
 from app.schemas.board import BoardCreate, BoardDetail, BoardSummary, BoardUpdate
+from app.schemas.card import CardRead
 from app.services.board_refs import assign_unique_board_code, assign_unique_share_token
 from app.services.security import ensure_board_access, ensure_board_editor
-from app.services.serializers import board_detail, board_summary
+from app.services.serializers import board_detail, board_summary, card_read
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
@@ -145,6 +146,32 @@ def update_board(
                 db.add(BoardMember(board_id=board.id, user_id=member.id))
     db.commit()
     return board_detail(get_board_loaded(db, board.id))
+
+
+@router.get("/{board_ref}/archived-cards", response_model=list[CardRead])
+def get_archived_cards(
+    board_ref: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+    share_token: str | None = Depends(board_share_token),
+) -> list[dict]:
+    board = ensure_board_access(db, get_board_loaded(db, board_ref), user, share_token)
+    list_ids = [bl.id for bl in board.lists]
+    if not list_ids:
+        return []
+    cards = (
+        db.query(Card)
+        .options(
+            selectinload(Card.label_links).selectinload(CardLabel.label),
+            selectinload(Card.member_links).selectinload(CardMember.user),
+            selectinload(Card.checklists).selectinload(Checklist.items),
+            selectinload(Card.activities).selectinload(CardActivity.user),
+        )
+        .filter(Card.list_id.in_(list_ids), Card.archived.is_(True))
+        .order_by(Card.updated_at.desc())
+        .all()
+    )
+    return [card_read(c) for c in cards]
 
 
 @router.delete("/{board_ref}", status_code=status.HTTP_204_NO_CONTENT)

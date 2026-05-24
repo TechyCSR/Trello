@@ -1,5 +1,5 @@
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarClock, CheckSquare, MessageSquare } from "lucide-react";
+import { CalendarClock, CheckCircle2, CheckSquare, Circle, MessageSquare } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ export function CardCoverBanner({ card, height = "h-20" }: { card: Card; height?
   );
 }
 
-export function CardFace({ card, compact = false }: { card: Card; compact?: boolean }) {
+export function CardFace({ card, compact = false, isDone = false }: { card: Card; compact?: boolean; isDone?: boolean }) {
   const checklistTotal = card.checklists.reduce((sum, checklist) => sum + checklist.items.length, 0);
   const checklistDone = card.checklists.reduce((sum, checklist) => sum + checklist.items.filter((item) => item.is_done).length, 0);
 
@@ -43,7 +43,7 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
           <span key={label.id} className="h-2 w-12 rounded-full" style={{ backgroundColor: label.color }} />
         ))}
       </div>
-      <div className="whitespace-pre-wrap break-words text-sm font-medium text-slate-100">{card.title}</div>
+      <div className={cn("whitespace-pre-wrap break-words text-sm font-medium", isDone ? "text-slate-500 line-through" : "text-slate-100")}>{card.title}</div>
       {!compact && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
           {card.due_date && (
@@ -77,7 +77,17 @@ export function CardFace({ card, compact = false }: { card: Card; compact?: bool
   );
 }
 
-export function KanbanCard({ card, compact = false }: { card: Card; compact?: boolean }) {
+export function KanbanCard({
+  card,
+  compact = false,
+  isDone = false,
+  onToggleDone,
+}: {
+  card: Card;
+  compact?: boolean;
+  isDone?: boolean;
+  onToggleDone?: () => void;
+}) {
   const setSelectedCard = useAppStore((state) => state.setSelectedCard);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `card-${card.id}`,
@@ -85,18 +95,34 @@ export function KanbanCard({ card, compact = false }: { card: Card; compact?: bo
   });
 
   return (
-    <button
+    <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "w-full rounded-xl border border-white/10 bg-[#1f2736] p-3 text-left shadow-sm transition hover:border-white/35 hover:shadow-card",
+        "group relative w-full rounded-xl border border-white/10 bg-[#1f2736] text-left shadow-sm transition hover:border-white/35 hover:shadow-card",
         isDragging && "opacity-40",
       )}
-      onClick={() => setSelectedCard(card)}
       {...attributes}
       {...listeners}
     >
-      <CardFace card={card} compact={compact} />
-    </button>
+      {onToggleDone && (
+        <button
+          type="button"
+          className="absolute left-2 top-2 z-10 rounded-full p-0.5 text-slate-400 opacity-0 transition hover:text-emerald-300 group-hover:opacity-100"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onToggleDone(); }}
+          aria-label={isDone ? "Mark as incomplete" : "Mark as complete"}
+        >
+          {isDone ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <Circle className="h-4 w-4" />}
+        </button>
+      )}
+      <button
+        type="button"
+        className={cn("w-full p-3 text-left", onToggleDone && "pl-8")}
+        onClick={() => setSelectedCard(card)}
+      >
+        <CardFace card={card} compact={compact} isDone={isDone} />
+      </button>
+    </div>
   );
 }
