@@ -30,6 +30,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { BoardListColumn } from "@/components/BoardListColumn";
 import { CardDialog } from "@/components/CardDialog";
 import { CardCoverBanner, CardFace } from "@/components/KanbanCard";
+import { getBoardBackground } from "@/lib/boardBackgrounds";
 import { hasCover } from "@/lib/cardCovers";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -589,10 +590,27 @@ export function BoardWorkspacePage() {
           </button>
         )}
 
-        <section className={`flex h-full min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[#51306f]/90 text-slate-100 shadow-none ring-0 transition-all duration-300 md:rounded-3xl md:border md:border-white/20 md:shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] md:ring-1 md:ring-black/20 ${showBoard ? "flex-1 opacity-100" : "pointer-events-none w-0 flex-none opacity-0"}`}>
+        <section
+          className={`relative flex h-full min-w-0 flex-col overflow-hidden rounded-none border-0 text-slate-100 shadow-none ring-0 transition-all duration-300 md:rounded-3xl md:border md:border-white/20 md:shadow-[0_18px_45px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] md:ring-1 md:ring-black/20 ${
+            (() => {
+              const bg = getBoardBackground(activeBoard.color);
+              return bg.kind === "color" ? `bg-gradient-to-br ${bg.className}` : "";
+            })()
+          } ${showBoard ? "flex-1 opacity-100" : "pointer-events-none w-0 flex-none opacity-0"}`}
+          style={(() => {
+            const bg = getBoardBackground(activeBoard.color);
+            return bg.kind === "image"
+              ? {
+                  backgroundImage: `linear-gradient(rgba(15,20,30,0.35), rgba(15,20,30,0.5)), url(${bg.imageUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined;
+          })()}
+        >
           {showBoard && (
             <>
-              <header className="sticky top-0 z-20 border-b border-white/15 bg-[#563777] px-4 py-3">
+              <header className="sticky top-0 z-20 border-b border-white/15 bg-black/30 px-4 py-3 backdrop-blur-sm">
                 {isEditingBoardTitle ? (
                   <div className="flex max-w-md items-center gap-2">
                     <Input
