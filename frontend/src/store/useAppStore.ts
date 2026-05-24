@@ -3,7 +3,7 @@ import axios from "axios";
 
 import { api, setApiUser } from "@/lib/api";
 import { positionBetween } from "@/lib/utils";
-import { showError } from "@/store/useToastStore";
+import { showError, showSuccess } from "@/store/useToastStore";
 import type { BoardDetail, BoardList, BoardSummary, Card, Label, User, VisibilityFilter } from "@/types";
 
 function errorDetail(error: unknown): string | undefined {
@@ -70,7 +70,7 @@ type AppState = {
   moveCard: (cardId: number, targetListId: number, targetIndex: number) => Promise<void>;
   setSelectedCard: (card: Card | null) => void;
   setFilters: (filters: Partial<Filters>) => void;
-  archiveCard: (card: Card) => void;
+  archiveCard: (card: Card) => Promise<void>;
   fetchArchivedCards: (boardId: number, force?: boolean) => Promise<Card[]>;
   unarchiveCard: (cardId: number) => Promise<void>;
 };
@@ -217,7 +217,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     boardsController?.abort();
     boardsController = new AbortController();
     const token = ++boardsRequestToken;
-    set({ isLoadingBoards: true, error: null });
+    set((state) => ({ isLoadingBoards: state.boards.length === 0, error: null }));
     try {
       const { data } = await api.get<BoardSummary[]>("/boards", {
         signal: boardsController.signal,
@@ -237,7 +237,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     boardController?.abort();
     boardController = new AbortController();
     const token = ++boardRequestToken;
-    set({ isLoadingBoard: true, error: null });
+    set((state) => ({ isLoadingBoard: !state.activeBoard || state.activeBoard.board_code !== boardRef, error: null }));
     try {
       const { data } = await api.get<BoardDetail>(`/boards/${boardRef}`, { signal: boardController.signal });
       if (token !== boardRequestToken) return;
@@ -538,16 +538,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ filters: { ...state.filters, ...filters } }));
   },
 
-  archiveCard(card: Card) {
+  async archiveCard(card: Card) {
     const board = get().activeBoard;
-    // Add to archived cards and remove from board immediately
+    if (!board) return;
+    const snapshotBoard = board;
+    const snapshotArchived = get().archivedCards;
+    const archivedCard = { ...card, archived: true };
     set({
-      archivedCards: [card, ...get().archivedCards.filter((c) => c.id !== card.id)],
-      archivedCardsBoardId: board?.id ?? get().archivedCardsBoardId,
-      activeBoard: board
-        ? { ...board, lists: board.lists.map((l) => ({ ...l, cards: l.cards.filter((c) => c.id !== card.id) })) }
-        : board,
+      archivedCards: [archivedCard, ...snapshotArchived.filter((c) => c.id !== card.id)],
+      archivedCardsBoardId: board.id,
+      activeBoard: { ...board, lists: board.lists.map((l) => ({ ...l, cards: l.cards.filter((c) => c.id !== card.id) })) },
+      selectedCard: get().selectedCard?.id === card.id ? null : get().selectedCard,
     });
+    showSuccess("Card archived", `"${card.title}" moved to archived cards`);
+    try {
+      const { data } = await api.patch<Card>(`/cards/${card.id}`, { archived: true });
+      set((state) => ({
+        archivedCards:
+          state.archivedCardsBoardId === board.id
+            ? [data, ...state.archivedCards.filter((item) => item.id !== data.id)]
+            : state.archivedCards,
+      }));
+    } catch (error) {
+      set({
+        activeBoard: snapshotBoard,
+        archivedCards: snapshotArchived,
+        archivedCardsBoardId: board.id,
+      });
+      showError("Could not archive card", errorDetail(error));
+    }
   },
 
   async fetchArchivedCards(boardId, force = false) {
@@ -581,6 +600,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { data } = await api.patch<Card>(`/cards/${cardId}`, { archived: false });
       const current = get().activeBoard;
       if (current) set({ activeBoard: replaceCard(current, data) });
+      showSuccess("Card restored", `"${data.title}" returned to the board`);
     } catch (error) {
       // Rollback: add back to archivedCards and remove from board
       set({

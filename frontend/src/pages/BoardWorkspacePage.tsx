@@ -41,7 +41,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { findUserBySlug, toUserSlug } from "@/lib/userSlug";
 import { useAppStore } from "@/store/useAppStore";
-import { showSuccess } from "@/store/useToastStore";
 import type { BoardList, Card } from "@/types";
 
 type DragState =
@@ -415,10 +414,7 @@ export function BoardWorkspacePage() {
     }
     setInboxDoneIds((current) => [...current, card.id]);
     window.setTimeout(() => {
-      showSuccess("Card archived", `"${card.title}" moved to archived cards`);
-      // Archive immediately in UI, then sync with server
-      archiveCard({ ...card, archived: true });
-      void updateCard(card.id, { archived: true });
+      void archiveCard(card);
     }, 900);
   }
 

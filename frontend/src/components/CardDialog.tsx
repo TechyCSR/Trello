@@ -46,6 +46,7 @@ export function CardDialog() {
     selectedCard,
     setSelectedCard,
     updateCard,
+    archiveCard: archiveCardInStore,
     deleteCard,
     createLabel,
     addCardComment,
@@ -215,8 +216,13 @@ export function CardDialog() {
   }
 
   async function archiveCard() {
-    await persistPatch({ archived: true }, "archive");
-    setSelectedCard(null);
+    if (!selectedCard || isSaving("archive")) return;
+    setSavingAction((prev) => { const next = new Set(prev); next.add("archive"); return next; });
+    try {
+      await archiveCardInStore(selectedCard);
+    } finally {
+      setSavingAction((prev) => { const next = new Set(prev); next.delete("archive"); return next; });
+    }
   }
 
   async function removeCard() {

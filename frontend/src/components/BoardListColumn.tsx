@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
-import { showSuccess } from "@/store/useToastStore";
 import type { BoardList, Card } from "@/types";
 
 export function BoardListColumn({
@@ -21,7 +20,7 @@ export function BoardListColumn({
   cards: Card[];
   accentClass?: string;
 }) {
-  const { createCard, deleteList, updateList, updateCard, archiveCard } = useAppStore();
+  const { createCard, deleteList, updateList, archiveCard } = useAppStore();
   const [title, setTitle] = useState("");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
@@ -38,12 +37,9 @@ export function BoardListColumn({
     // Mark done: show strikethrough for 900ms then archive instantly
     setDoneIds((prev) => [...prev, card.id]);
     window.setTimeout(() => {
-      showSuccess("Card archived", `"${card.title}" moved to archived cards`);
-      // Archive immediately in UI, then sync with server
-      archiveCard({ ...card, archived: true });
-      void updateCard(card.id, { archived: true });
+      void archiveCard(card);
     }, 900);
-  }, [doneIds, updateCard, archiveCard]);
+  }, [doneIds, archiveCard]);
   const cardIds = useMemo(() => cards.map((card) => `card-${card.id}`), [cards]);
   const { setNodeRef: setDropRef } = useDroppable({
     id: `list-drop-${list.id}`,
