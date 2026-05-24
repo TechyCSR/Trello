@@ -470,7 +470,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ activeBoard: { ...board, lists } });
     try {
       const { data } = await api.patch<Card>("/cards/move", { card_id: cardId, target_list_id: targetListId, position });
-      set({ activeBoard: replaceCard(get().activeBoard ?? board, data) });
+      // Only apply the server response if the card hasn't been moved again in the meantime.
+      // If the card's current list_id or position differs from what we sent, a newer drag has
+      // already updated the optimistic state — don't clobber it.
+      const current = get().activeBoard;
+      if (current) {
+        const currentCard = current.lists.flatMap((l) => l.cards).find((c) => c.id === cardId);
+        if (!currentCard || (currentCard.list_id === data.list_id && currentCard.position === position)) {
+          set({ activeBoard: replaceCard(current, data) });
+        }
+      }
     } catch (error) {
       set({ activeBoard: snapshot, error: "Move failed, restored previous card order." });
       showError("Move failed", errorDetail(error) ?? "Restored previous card order.");

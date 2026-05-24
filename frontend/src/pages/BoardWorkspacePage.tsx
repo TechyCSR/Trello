@@ -710,13 +710,34 @@ export function BoardWorkspacePage() {
           )}
         </section>
         </div>
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeDrag?.type === "card" ? (
             <div className="w-[260px] rotate-2 rounded-xl border border-white/20 bg-[#1f2736] p-3 shadow-2xl">
               <CardFace card={activeDrag.card} compact />
             </div>
           ) : null}
-          {activeDrag?.type === "list" ? <div className="w-[272px] rounded-2xl border border-white/20 bg-[#3f2559] p-3 text-slate-100 shadow-2xl">{activeDrag.list.title}</div> : null}
+          {activeDrag?.type === "list" ? (
+            <div className="w-[320px] rounded-2xl border border-white/20 bg-[#3f2559] shadow-2xl opacity-95">
+              <div className="border-b border-white/10 px-3 py-3">
+                <span className="text-lg font-semibold text-slate-100">{activeDrag.list.title}</span>
+              </div>
+              <div className="space-y-2 px-2 py-2">
+                {activeDrag.list.cards.slice(0, 5).map((card) => (
+                  <div key={card.id} className="rounded-xl border border-white/10 bg-[#1f2736] p-3">
+                    <div className="mb-1 flex gap-1">
+                      {card.labels.slice(0, 3).map((label) => (
+                        <span key={label.id} className="h-1.5 w-8 rounded-full" style={{ backgroundColor: label.color }} />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium text-slate-100">{card.title}</span>
+                  </div>
+                ))}
+                {activeDrag.list.cards.length > 5 && (
+                  <div className="px-1 py-1 text-xs text-slate-400">+{activeDrag.list.cards.length - 5} more cards</div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
 

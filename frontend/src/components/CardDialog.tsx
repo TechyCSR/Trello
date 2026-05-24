@@ -59,7 +59,7 @@ export function CardDialog() {
   const [labelName, setLabelName] = useState("");
   const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
   const [commentText, setCommentText] = useState("");
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [savingAction, setSavingAction] = useState<Set<string>>(new Set());
   const [isLabelCreatorOpen, setIsLabelCreatorOpen] = useState(false);
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
   const checklistSectionRef = useRef<HTMLElement | null>(null);
@@ -73,7 +73,7 @@ export function CardDialog() {
     setChecklists(selectedCard.checklists);
     setNewChecklistItem("");
     setCommentText("");
-    setPendingAction(null);
+    setSavingAction(new Set());
     setIsLabelCreatorOpen(false);
     setIsCoverPickerOpen(false);
     // Reset local form only when a different card is opened to avoid clobbering in-progress edits.
@@ -101,23 +101,23 @@ export function CardDialog() {
   const checklistTotal = firstChecklist?.items.length ?? 0;
   const checklistDone = firstChecklist?.items.filter((item) => item.is_done).length ?? 0;
   const progress = checklistTotal ? Math.round((checklistDone / checklistTotal) * 100) : 0;
-  const isBusy = pendingAction !== null;
+  const isSaving = (action: string) => savingAction.has(action);
+  const isBusy = savingAction.size > 0;
 
   if (!activeBoard || !selectedCard) return null;
 
   async function persistPatch(payload: Parameters<typeof updateCard>[1], action: string) {
-    if (pendingAction) return;
-    setPendingAction(action);
+    setSavingAction((prev) => { const next = new Set(prev); next.add(action); return next; });
     try {
       await updateCard(selectedCard!.id, payload);
     } finally {
-      setPendingAction(null);
+      setSavingAction((prev) => { const next = new Set(prev); next.delete(action); return next; });
     }
   }
 
   async function saveCard(event?: FormEvent) {
     event?.preventDefault();
-    if (!title.trim() || isBusy) return;
+    if (!title.trim()) return;
     await persistPatch(
       {
         title: title.trim(),
@@ -132,8 +132,8 @@ export function CardDialog() {
 
   async function createAndAssignLabel() {
     const name = labelName.trim();
-    if (!name || isBusy) return;
-    setPendingAction("label");
+    if (!name) return;
+    setSavingAction((prev) => { const next = new Set(prev); next.add("label"); return next; });
     try {
       const label = await createLabel(activeBoard!.id, name, labelColor);
       if (!label) return;
@@ -143,7 +143,7 @@ export function CardDialog() {
       setIsLabelCreatorOpen(false);
       await updateCard(selectedCard!.id, { label_ids: next });
     } finally {
-      setPendingAction(null);
+      setSavingAction((prev) => { const next = new Set(prev); next.delete("label"); return next; });
     }
   }
 
@@ -204,13 +204,13 @@ export function CardDialog() {
 
   async function submitComment() {
     const detail = commentText.trim();
-    if (!detail || isBusy) return;
-    setPendingAction("comment");
+    if (!detail) return;
+    setSavingAction((prev) => { const next = new Set(prev); next.add("comment"); return next; });
     try {
       await addCardComment(selectedCard!.id, detail);
       setCommentText("");
     } finally {
-      setPendingAction(null);
+      setSavingAction((prev) => { const next = new Set(prev); next.delete("comment"); return next; });
     }
   }
 
@@ -220,12 +220,11 @@ export function CardDialog() {
   }
 
   async function removeCard() {
-    if (isBusy) return;
-    setPendingAction("delete");
+    setSavingAction((prev) => { const next = new Set(prev); next.add("delete"); return next; });
     try {
       await deleteCard(selectedCard!.id);
     } finally {
-      setPendingAction(null);
+      setSavingAction((prev) => { const next = new Set(prev); next.delete("delete"); return next; });
     }
   }
 
@@ -293,13 +292,37 @@ export function CardDialog() {
           <section className="space-y-6 border-white/10 p-6 lg:border-r">
             <div className="flex items-start gap-3">
               <CheckSquare className="mt-2 h-6 w-6 shrink-0 text-slate-300" />
-              <Input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                className="h-auto border-transparent bg-transparent px-0 py-1 text-3xl font-bold text-slate-100 shadow-none placeholder:text-slate-500 focus-visible:ring-0"
-                placeholder="Card title"
-                disabled={isBusy}
-              />
+              <div className="min-w-0 flex-1">
+                <Input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="h-auto border-transparent bg-transparent px-0 py-1 text-3xl font-bold text-slate-100 shadow-none placeholder:text-slate-500 focus-visible:ring-0"
+                  placeholder="Card title"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void persistPatch({ title: title.trim() }, "title"); } }}
+                />
+                {title.trim() !== selectedCard.title && title.trim() && (
+                  <div className="mt-1 flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 bg-blue-500 px-3 text-xs text-slate-100 hover:bg-blue-400"
+                      disabled={isSaving("title")}
+                      onClick={() => void persistPatch({ title: title.trim() }, "title")}
+                    >
+                      {isSaving("title") ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-3 text-xs text-slate-400 hover:bg-white/10"
+                      onClick={() => setTitle(selectedCard.title)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="ml-9 flex flex-wrap gap-2">
@@ -320,7 +343,7 @@ export function CardDialog() {
                   }
                 }}
               >
-                <CheckSquare className="h-4 w-4" />
+                {isSaving("checklist") ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare className="h-4 w-4" />}
                 Checklist
               </Button>
               <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={() => setIsCoverPickerOpen((open) => !open)}>
@@ -342,7 +365,6 @@ export function CardDialog() {
                     className="h-10 min-w-16 rounded-md border border-white/15 px-3 text-sm font-semibold text-white shadow-sm"
                     style={{ backgroundColor: label.color }}
                     onClick={() => void toggleLabel(label)}
-                    disabled={isBusy}
                   >
                     {label.name}
                   </button>
@@ -355,7 +377,7 @@ export function CardDialog() {
                     onChange={(event) => setLabelName(event.target.value)}
                     placeholder="Label name"
                     className="border-white/15 bg-[#17191d] text-slate-100"
-                    disabled={isBusy}
+                    disabled={isSaving("label")}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -376,8 +398,8 @@ export function CardDialog() {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isBusy || !labelName.trim()} onClick={() => void createAndAssignLabel()}>
-                      {pendingAction === "label" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isSaving("label") || !labelName.trim()} onClick={() => void createAndAssignLabel()}>
+                      {isSaving("label") ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                       Create label
                     </Button>
                     <Button type="button" variant="ghost" className="text-slate-300 hover:bg-white/10" onClick={() => setIsLabelCreatorOpen(false)}>
@@ -396,7 +418,6 @@ export function CardDialog() {
                         labelIds.includes(label.id) ? "border-white/30 bg-white/15 text-white" : "border-white/10 bg-black/15 text-slate-300 hover:bg-white/10"
                       }`}
                       onClick={() => void toggleLabel(label)}
-                      disabled={isBusy}
                     >
                       <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.color }} />
                       {label.name}
@@ -420,8 +441,8 @@ export function CardDialog() {
                   void persistPatch({ due_date: next ? new Date(`${next}T12:00:00`).toISOString() : null }, "due");
                 }}
                 style={{ colorScheme: "dark" }}
-                className="ml-8 h-10 max-w-xs border-white/15 bg-black/20 text-slate-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
-                disabled={isBusy}
+                className="ml-8 h-10 max-w-xs border-white/15 bg-[#22252b] text-slate-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:brightness-200"
+                disabled={isSaving("due")}
               />
             </section>
 
@@ -435,14 +456,13 @@ export function CardDialog() {
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Add a more detailed description..."
                 className="ml-8 mr-2 block min-h-24 max-w-[calc(100%-2.5rem)] resize-y border-white/15 bg-black/15 text-slate-100 placeholder:text-slate-400"
-                disabled={isBusy}
               />
               {description !== (selectedCard.description ?? "") && (
                 <div className="ml-8 flex gap-2">
                   <Button
                     type="button"
                     className="bg-blue-500 text-slate-100 hover:bg-blue-400"
-                    disabled={isBusy}
+                    disabled={isSaving("description")}
                     onClick={() => {
                       const next = description.trim() ? description.trim() : null;
                       if ((selectedCard?.description ?? null) !== next) {
@@ -450,14 +470,13 @@ export function CardDialog() {
                       }
                     }}
                   >
-                    {pendingAction === "description" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isSaving("description") ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     Save
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-                    disabled={isBusy}
                     onClick={() => setDescription(selectedCard.description ?? "")}
                   >
                     Cancel
@@ -481,9 +500,9 @@ export function CardDialog() {
                 <div className="space-y-2">
                   {firstChecklist?.items.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 rounded-lg bg-black/15 px-3 py-2">
-                      <input type="checkbox" checked={item.is_done} onChange={() => void toggleChecklistItem(item.id)} disabled={isBusy} />
+                      <input type="checkbox" checked={item.is_done} onChange={() => void toggleChecklistItem(item.id)} />
                       <span className={`flex-1 text-sm ${item.is_done ? "text-slate-500 line-through" : "text-slate-200"}`}>{item.title}</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:bg-white/10" onClick={() => void removeChecklistItem(item.id)} disabled={isBusy}>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:bg-white/10" onClick={() => void removeChecklistItem(item.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -495,7 +514,6 @@ export function CardDialog() {
                     onChange={(event) => setNewChecklistItem(event.target.value)}
                     placeholder="Add checklist item"
                     className="border-white/15 bg-black/20 text-slate-100"
-                    disabled={isBusy}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -503,8 +521,8 @@ export function CardDialog() {
                       }
                     }}
                   />
-                  <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isBusy || !newChecklistItem.trim()} onClick={() => void addChecklistItem()}>
-                    {pendingAction === "checklist" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                  <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isSaving("checklist") || !newChecklistItem.trim()} onClick={() => void addChecklistItem()}>
+                    {isSaving("checklist") ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
                   </Button>
                 </div>
               </div>
@@ -527,7 +545,6 @@ export function CardDialog() {
                 onChange={(event) => setCommentText(event.target.value)}
                 placeholder="Write a comment..."
                 className="border-white/10 bg-[#22252b] text-slate-100 placeholder:text-slate-400"
-                disabled={isBusy}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -535,8 +552,8 @@ export function CardDialog() {
                   }
                 }}
               />
-              <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isBusy || !commentText.trim()} onClick={() => void submitComment()}>
-                {pendingAction === "comment" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
+              <Button type="button" className="bg-blue-500 text-slate-100 hover:bg-blue-400" disabled={isSaving("comment") || !commentText.trim()} onClick={() => void submitComment()}>
+                {isSaving("comment") ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
               </Button>
             </div>
             <div className="kanban-scroll max-h-[46vh] space-y-4 overflow-y-auto pr-1">
@@ -562,12 +579,12 @@ export function CardDialog() {
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-white/10 pt-5">
-              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={archiveCard} disabled={isBusy}>
-                {pendingAction === "archive" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              <Button type="button" variant="outline" className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10" onClick={archiveCard} disabled={isSaving("archive")}>
+                {isSaving("archive") ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
                 Archive
               </Button>
-              <Button type="button" variant="destructive" onClick={removeCard} disabled={isBusy}>
-                {pendingAction === "delete" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <Button type="button" variant="destructive" onClick={removeCard} disabled={isSaving("delete")}>
+                {isSaving("delete") ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete
               </Button>
             </div>
