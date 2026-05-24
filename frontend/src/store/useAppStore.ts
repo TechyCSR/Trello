@@ -162,10 +162,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async fetchUsers() {
     const { data } = await api.get<User[]>("/users");
-    const preferred = data.find((user) => user.id === storedUserId) ?? data[0] ?? null;
+    const preferred = data.find((user) => user.id === storedUserId) ?? null;
     if (preferred) {
       setApiUser(preferred.id);
-      localStorage.setItem("flowboard:userId", String(preferred.id));
     }
     set({
       users: data,

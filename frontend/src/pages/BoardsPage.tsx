@@ -19,11 +19,16 @@ export function BoardsPage() {
     filters,
     isLoadingBoards,
     setCurrentUser,
+    fetchUsers,
     fetchBoards,
     deleteBoard,
     toggleStarredBoard,
     setCreateBoardModalOpen,
   } = useAppStore();
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (!users.length || !username) return;
@@ -34,6 +39,9 @@ export function BoardsPage() {
     }
     if (!matched && currentUser) {
       navigate(`/${toUserSlug(currentUser.name)}/boards`, { replace: true });
+    }
+    if (!matched && !currentUser) {
+      navigate("/", { replace: true });
     }
   }, [users, username, currentUser, setCurrentUser, navigate]);
 
@@ -56,6 +64,18 @@ export function BoardsPage() {
     () => boards.filter((board) => starredBoardIds.includes(board.id)),
     [boards, starredBoardIds],
   );
+
+  // Show loading state while users are being fetched or while checking auth
+  if (!users.length || !currentUser) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#22283a_0%,_#181b24_55%,_#13161f_100%)] text-slate-100">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-blue-500" />
+          <span className="text-sm text-slate-400">Loading...</span>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-[calc(100vh-56px)] bg-[radial-gradient(circle_at_top,_#22283a_0%,_#181b24_55%,_#13161f_100%)] text-slate-100">

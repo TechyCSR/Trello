@@ -5,11 +5,14 @@ import { ToastViewport } from "@/components/ToastViewport";
 import { BoardsPage } from "@/pages/BoardsPage";
 import { BoardWorkspacePage } from "@/pages/BoardWorkspacePage";
 import { HomePage } from "@/pages/HomePage";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function App() {
+  const currentUser = useAppStore((s) => s.currentUser);
+
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      {currentUser && <Navbar />}
       <ToastViewport />
       <Routes>
         <Route path="/" element={<HomePage />} />

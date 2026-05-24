@@ -188,6 +188,7 @@ export function BoardWorkspacePage() {
     boards,
     activeBoard,
     isLoadingBoard,
+    fetchUsers,
     fetchBoards,
     fetchBoard,
     createList,
@@ -224,6 +225,10 @@ export function BoardWorkspacePage() {
     id: "inbox-drop",
     data: { type: "inbox-drop", listId: inboxList?.id ?? null },
   });
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (!users.length || !username) return;
@@ -472,6 +477,18 @@ export function BoardWorkspacePage() {
     if (targetListId) {
       await moveCard(cardId, targetListId, targetIndex);
     }
+  }
+
+  // Show loading state while users are being fetched or while checking auth
+  if (!users.length || !currentUser) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#211d2c] text-slate-100">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-blue-500" />
+          <span className="text-sm text-slate-400">Loading...</span>
+        </div>
+      </main>
+    );
   }
 
   if (isLoadingBoard || !activeBoard) {
