@@ -88,7 +88,7 @@ export function HomePage() {
       {/* ─── Navbar-like top bar (minimal, no full navbar) ─── */}
       {!currentUser && (
         <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/5 bg-[#1a1d27]/80 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
             <div className="flex items-center gap-2.5">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-500/20">
                 <PanelsTopLeft className="h-4 w-4 text-white" />
@@ -108,20 +108,20 @@ export function HomePage() {
               <div className="pointer-events-none absolute -left-40 top-20 h-[500px] w-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
               <div className="pointer-events-none absolute -right-40 top-40 h-[400px] w-[400px] rounded-full bg-indigo-500/8 blur-[100px]" />
 
-              <div className="mx-auto grid max-w-7xl gap-12 px-6 pb-24 pt-20 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:pt-28">
+              <div className="mx-auto grid max-w-7xl gap-8 px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:gap-12 lg:pb-24 lg:pt-28">
                 {/* Left — Copy */}
-                <div className="max-w-lg">
-                  <p className="mb-4 text-sm font-medium uppercase tracking-wider text-blue-400">Project management</p>
-                  <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+                <div className="max-w-lg text-center sm:text-left">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-wider text-blue-400 sm:mb-4 sm:text-sm">Project management</p>
+                  <h1 className="text-3xl font-bold leading-[1.12] tracking-tight text-white min-[420px]:text-4xl sm:text-5xl lg:text-[3.4rem]">
                     Trello brings all your tasks, teammates, and tools together
                   </h1>
-                  <p className="mt-5 text-lg leading-relaxed text-slate-400">
+                  <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-slate-400 sm:mx-0 sm:mt-5 sm:text-lg">
                     Keep everything in the same place — even if your team isn't. A fast, visual Kanban workspace
                     for boards, lists, cards, and real-time collaboration.
                   </p>
                   <Button
                     size="lg"
-                    className="mt-8 bg-gradient-to-r from-blue-600 to-blue-500 px-8 text-base font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-blue-600/40 hover:brightness-110"
+                    className="mt-7 w-full bg-gradient-to-r from-blue-600 to-blue-500 px-8 text-base font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-blue-600/40 hover:brightness-110 sm:mt-8 sm:w-auto"
                     onClick={handleStart}
                   >
                     Let's Start
@@ -130,7 +130,7 @@ export function HomePage() {
                 </div>
 
                 {/* Right — 3D Hero Card */}
-                <div className="flex items-center justify-center">
+                <div className="hidden items-center justify-center lg:flex">
                   <div
                     ref={heroRef}
                     className="w-full max-w-[520px] rounded-2xl border border-white/10 bg-[#22262f] p-1 shadow-2xl shadow-black/40 transition-transform duration-200 ease-out"
@@ -179,13 +179,13 @@ export function HomePage() {
 
             {/* ─── Features Section ─── */}
             <section className="border-t border-white/5 bg-[#15171f]">
-              <div className="mx-auto max-w-7xl px-6 py-20 lg:py-28">
-                <div className="mb-14 text-center">
+              <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:py-28">
+                <div className="mb-10 text-center sm:mb-14">
                   <p className="mb-2 text-sm font-medium uppercase tracking-wider text-blue-400">Everything you need</p>
-                  <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  <h2 className="text-2xl font-bold tracking-tight text-white sm:text-4xl">
                     Powerful features, minimal interface
                   </h2>
-                  <p className="mx-auto mt-4 max-w-2xl text-base text-slate-400">
+                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400 sm:mt-4 sm:text-base">
                     Built for speed and simplicity. Every feature is designed to keep you focused on what matters.
                   </p>
                 </div>
@@ -205,7 +205,7 @@ export function HomePage() {
 
             {/* ─── Footer ─── */}
             <footer className="border-t border-white/5 bg-[#1a1d27] py-8">
-              <div className="mx-auto max-w-7xl px-6 text-center text-sm text-slate-500">
+              <div className="mx-auto max-w-7xl px-4 text-center text-sm text-slate-500 sm:px-6">
                 Built with React, FastAPI, and PostgreSQL &middot; Trello Clone
               </div>
             </footer>
@@ -219,7 +219,7 @@ export function HomePage() {
             <div className="pointer-events-none absolute left-1/4 top-1/4 h-[400px] w-[400px] rounded-full bg-blue-600/8 blur-[100px]" />
             <div className="pointer-events-none absolute bottom-1/4 right-1/4 h-[300px] w-[300px] rounded-full bg-indigo-500/6 blur-[80px]" />
 
-            <div className="relative z-10 w-full max-w-lg px-6 py-16 text-center">
+            <div className="relative z-10 w-full max-w-lg px-4 py-10 text-center sm:px-6 sm:py-16">
               <Sparkles className="mx-auto mb-4 h-8 w-8 text-blue-400" />
               <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 Who's working today?
@@ -227,14 +227,14 @@ export function HomePage() {
               <p className="mt-2 text-sm text-slate-400">Choose your profile to continue</p>
 
               {/* User grid */}
-              <div className="mx-auto mt-10 flex flex-wrap items-center justify-center gap-5">
+              <div className="mx-auto mt-8 grid grid-cols-2 gap-3 min-[430px]:grid-cols-3 sm:mt-10 sm:flex sm:flex-wrap sm:gap-5">
                 {users.map((user) => {
                   const isSelected = selectedUserId === user.id;
                   return (
                     <button
                       key={user.id}
                       onClick={() => handleSelectUser(user.id)}
-                      className={`group flex flex-col items-center gap-2 rounded-2xl border p-4 transition-all duration-200 ${
+                      className={`group flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all duration-200 sm:p-4 ${
                         isSelected
                           ? "border-blue-500/60 bg-blue-500/10 shadow-lg shadow-blue-500/10 scale-105"
                           : "border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/5"
@@ -243,7 +243,7 @@ export function HomePage() {
                       <img
                         src={resolveAvatarUrl(user)}
                         alt={user.name}
-                        className={`h-16 w-16 rounded-full border-2 object-cover transition-all duration-200 ${
+                        className={`h-14 w-14 rounded-full border-2 object-cover transition-all duration-200 sm:h-16 sm:w-16 ${
                           isSelected ? "border-blue-400 shadow-md shadow-blue-500/20" : "border-white/15 group-hover:border-white/30"
                         }`}
                       />
@@ -259,7 +259,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 disabled={!selectedUserId}
-                className="mt-10 bg-gradient-to-r from-blue-600 to-blue-500 px-8 text-base font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-blue-600/40 hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                className="mt-8 w-full bg-gradient-to-r from-blue-600 to-blue-500 px-8 text-base font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:shadow-blue-600/40 hover:brightness-110 disabled:opacity-40 disabled:shadow-none sm:mt-10 sm:w-auto"
                 onClick={handleGo}
               >
                 Let's Create Board
