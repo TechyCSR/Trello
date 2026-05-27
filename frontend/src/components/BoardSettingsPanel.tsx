@@ -1,4 +1,4 @@
-import { Archive, ChevronRight, Image, Loader2, Palette, RotateCcw, Settings, X } from "lucide-react";
+import { Archive, Check, ChevronRight, Copy, Image, Loader2, Mail, Palette, RotateCcw, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ export function BoardSettingsPanel({ onClose }: { onClose: () => void }) {
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [isSavingBg, setIsSavingBg] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
   const backgroundRequestRef = useRef(0);
 
   // Use cached archived cards instantly; only show loading on first fetch for this board.
@@ -139,6 +140,40 @@ export function BoardSettingsPanel({ onClose }: { onClose: () => void }) {
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
           </button>
+
+          {/* Email to Board */}
+          {activeBoard.email_address && (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+              <div className="mb-2 flex items-center gap-3">
+                <Mail className="h-4 w-4 text-violet-300" />
+                <div className="font-semibold text-sm">Email to Board</div>
+              </div>
+              <p className="mb-2 text-xs text-slate-400">
+                Forward emails to this address and they will appear as cards in the Inbox.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded-lg bg-black/30 px-3 py-2 text-xs text-sky-200 select-all">
+                  {activeBoard.email_address}
+                </code>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg bg-white/10 p-2 text-slate-300 transition hover:bg-white/20 hover:text-white"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(activeBoard.email_address!).then(() => {
+                      setEmailCopied(true);
+                      setTimeout(() => setEmailCopied(false), 2000);
+                    });
+                  }}
+                  title="Copy email address"
+                >
+                  {emailCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+              {emailCopied && (
+                <p className="mt-1.5 text-xs text-emerald-400">Copied to clipboard!</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

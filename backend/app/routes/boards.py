@@ -7,7 +7,8 @@ from app.models import Board, BoardList, BoardMember, Card, CardActivity, CardLa
 from app.routes.deps import board_share_token, current_user
 from app.schemas.board import BoardCreate, BoardDetail, BoardSummary, BoardUpdate
 from app.schemas.card import CardRead
-from app.services.board_refs import assign_unique_board_code, assign_unique_share_token
+from app.services.board_refs import assign_unique_board_code, assign_unique_email_token, assign_unique_share_token
+from app.services.email_poller import poll_once
 from app.services.security import ensure_board_access, ensure_board_editor
 from app.services.serializers import board_detail, board_summary, card_read
 
@@ -100,6 +101,7 @@ def create_board(payload: BoardCreate, db: Session = Depends(get_db), user: User
         visibility="public" if payload.is_public else "private",
         share_enabled=False,
         share_token=assign_unique_share_token(db),
+        email_ingest_token=assign_unique_email_token(db),
         owner_id=user.id,
     )
     db.add(board)
@@ -186,3 +188,10 @@ def delete_board(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner can delete a board")
     db.delete(board)
     db.commit()
+
+
+@router.post("/email/poll", tags=["email"])
+def manual_email_poll() -> dict:
+    """Manually trigger one email poll cycle. Useful for testing."""
+    count = poll_once()
+    return {"processed": count}

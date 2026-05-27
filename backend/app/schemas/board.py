@@ -42,6 +42,8 @@ class BoardSummary(BaseModel):
     members: list[UserRead] = []
     list_count: int = 0
     card_count: int = 0
+    email_ingest_token: str | None = None
+    email_address: str | None = None
 
 
 class BoardDetail(BoardSummary):

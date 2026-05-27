@@ -81,6 +81,8 @@ export type BoardSummary = {
   members: User[];
   list_count: number;
   card_count: number;
+  email_ingest_token: string | null;
+  email_address: string | null;
 };
 
 export type BoardDetail = BoardSummary & {

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Board
 
 _ALPHANUM = string.ascii_uppercase + string.digits
+_LOWER_ALPHANUM = string.ascii_lowercase + string.digits
 
 
 def generate_board_code(length: int = 6) -> str:
@@ -14,6 +15,10 @@ def generate_board_code(length: int = 6) -> str:
 
 def generate_share_token(length: int = 24) -> str:
     return "".join(random.choice(_ALPHANUM) for _ in range(length))
+
+
+def generate_email_token(length: int = 10) -> str:
+    return "".join(random.choice(_LOWER_ALPHANUM) for _ in range(length))
 
 
 def assign_unique_board_code(db: Session) -> str:
@@ -32,3 +37,12 @@ def assign_unique_share_token(db: Session) -> str:
         if not exists:
             return token
     raise RuntimeError("Could not generate a unique share token")
+
+
+def assign_unique_email_token(db: Session) -> str:
+    for _ in range(40):
+        token = generate_email_token()
+        exists = db.query(Board.id).filter(Board.email_ingest_token == token).first()
+        if not exists:
+            return token
+    raise RuntimeError("Could not generate a unique email ingest token")

@@ -1,6 +1,16 @@
 from datetime import datetime, timezone
 
 from app.models import Board, BoardList, Card, CardActivity, Checklist, Label, User
+from app.utils.config import settings
+
+
+def _build_email_address(token: str | None) -> str | None:
+    if not token or not settings.email_address:
+        return None
+    local, _, domain = settings.email_address.partition("@")
+    if not domain:
+        return None
+    return f"{local}+board_{token}@{domain}"
 
 
 def user_read(user: User) -> dict:
@@ -91,6 +101,8 @@ def board_summary(board: Board, list_count: int | None = None, card_count: int |
         "members": [user_read(member.user) for member in board.members],
         "list_count": resolved_list_count,
         "card_count": resolved_card_count,
+        "email_ingest_token": getattr(board, "email_ingest_token", None),
+        "email_address": _build_email_address(getattr(board, "email_ingest_token", None)),
     }
 
 

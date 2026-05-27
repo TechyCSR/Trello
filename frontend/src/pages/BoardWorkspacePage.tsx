@@ -13,13 +13,17 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
+  Check,
   CheckCircle2,
   Circle,
+  Copy,
+  Info,
   Inbox,
   LayoutPanelLeft,
   Loader2,
   PanelLeftClose,
   Plus,
+  RefreshCw,
   Settings,
   SquarePen,
   SwitchCamera,
@@ -234,6 +238,8 @@ export function BoardWorkspacePage() {
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [savingInboxCardId, setSavingInboxCardId] = useState<number | null>(null);
   const [isSavingBoardTitle, setIsSavingBoardTitle] = useState(false);
+  const [isRefreshingInbox, setIsRefreshingInbox] = useState(false);
+  const [inboxEmailCopied, setInboxEmailCopied] = useState(false);
   const [isMobileWorkspace, setIsMobileWorkspace] = useState(() => window.matchMedia("(max-width: 767px)").matches);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const inboxList = activeBoard?.lists.find((list) => list.is_inbox) ?? activeBoard?.lists?.[0] ?? null;
@@ -261,6 +267,13 @@ export function BoardWorkspacePage() {
   useEffect(() => {
     if (boardId) void fetchBoard(boardId);
   }, [boardId, fetchBoard]);
+
+  // Auto-refresh inbox every 30s when inbox is visible
+  useEffect(() => {
+    if (!showInbox || !boardId) return;
+    const id = window.setInterval(() => { void fetchBoard(boardId); }, 30_000);
+    return () => window.clearInterval(id);
+  }, [showInbox, boardId, fetchBoard]);
 
   useEffect(() => {
     if (currentUser) void fetchBoards();
@@ -544,9 +557,25 @@ export function BoardWorkspacePage() {
                     <Inbox className="h-5 w-5 text-sky-200" />
                     <h2 className="truncate text-2xl font-semibold text-slate-100">{inboxTitle || "Inbox"}</h2>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-100 hover:bg-white/10" onClick={toggleInbox} aria-label="Hide inbox section">
-                    <PanelLeftClose className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-slate-300 hover:bg-white/10 hover:text-white"
+                      aria-label="Refresh inbox"
+                      disabled={isRefreshingInbox}
+                      onClick={() => {
+                        if (!boardId) return;
+                        setIsRefreshingInbox(true);
+                        void fetchBoard(boardId).finally(() => setIsRefreshingInbox(false));
+                      }}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isRefreshingInbox ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-100 hover:bg-white/10" onClick={toggleInbox} aria-label="Hide inbox section">
+                      <PanelLeftClose className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <form onSubmit={submitInboxCard} className="rounded-xl bg-black/25 p-2">
                   <Input
@@ -608,16 +637,36 @@ export function BoardWorkspacePage() {
                   </div>
                 )}
               </div>
-              <div className="border-t border-white/15 p-3">
-                <div className="flex items-center justify-between rounded-full border border-white/15 bg-black/20 px-3 py-2 text-sm text-slate-300">
-                  <span>Consolidate your to-dos</span>
-                  <div className="flex items-center gap-1 text-slate-200">
-                    <span className="h-2 w-2 rounded-full bg-emerald-300" />
-                    <span className="h-2 w-2 rounded-full bg-amber-300" />
-                    <span className="h-2 w-2 rounded-full bg-cyan-300" />
+              {activeBoard?.email_address && (
+                <div className="border-t border-white/15 p-3">
+                  <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                    <code className="min-w-0 flex-1 truncate text-xs text-sky-300">
+                      {activeBoard.email_address}
+                    </code>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                      title="Copy email address"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(activeBoard.email_address!).then(() => {
+                          setInboxEmailCopied(true);
+                          setTimeout(() => setInboxEmailCopied(false), 2000);
+                        });
+                      }}
+                    >
+                      {inboxEmailCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                    <div className="group relative shrink-0">
+                      <button type="button" className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white">
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-52 rounded-lg border border-white/15 bg-[#0f2a57] p-2.5 text-xs text-slate-300 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                        Send email here — subject becomes the card <strong className="text-white">title</strong>, body becomes the <strong className="text-white">description</strong>.
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </section>

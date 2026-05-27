@@ -74,6 +74,7 @@ def ensure_runtime_schema(engine: Engine) -> None:
             "visibility": "VARCHAR(16) NOT NULL DEFAULT 'private'",
             "share_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
             "share_token": "VARCHAR(32)",
+            "email_ingest_token": "VARCHAR(16)",
             "owner_id": "INTEGER",
             "created_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "updated_at": f"{timestamp_type} NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -410,6 +411,29 @@ def ensure_runtime_schema(engine: Engine) -> None:
                     )
                     used_tokens.add(token)
                 connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_share_token ON boards (share_token)"))
+        if "boards" in post_tables and "email_ingest_token" in board_columns:
+            rows_needing_email = connection.execute(
+                text("SELECT id FROM boards WHERE email_ingest_token IS NULL OR email_ingest_token = '' ORDER BY id")
+            ).mappings().all()
+            used_email_tokens: set[str] = set()
+            existing_email = connection.execute(
+                text("SELECT email_ingest_token FROM boards WHERE email_ingest_token IS NOT NULL AND email_ingest_token != ''")
+            ).scalars().all()
+            used_email_tokens.update(existing_email)
+            import random, string
+            _lower_alphanum = string.ascii_lowercase + string.digits
+            for row in rows_needing_email:
+                for _ in range(40):
+                    etoken = "".join(random.choice(_lower_alphanum) for _ in range(10))
+                    if etoken not in used_email_tokens:
+                        break
+                connection.execute(
+                    text("UPDATE boards SET email_ingest_token = :token WHERE id = :board_id"),
+                    {"token": etoken, "board_id": int(row["id"])},
+                )
+                used_email_tokens.add(etoken)
+            connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_boards_email_ingest_token ON boards (email_ingest_token)"))
+
         if "lists" in post_tables:
             connection.execute(text("UPDATE lists SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             connection.execute(text("UPDATE lists SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL"))

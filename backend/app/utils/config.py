@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     cors_origin_regex: str | None = None
     auto_seed: bool = True
+    email_address: str = ""
+    email_app_password: str = ""
+    email_imap_host: str = "imap.gmail.com"
+    email_poll_interval: int = 30
 
     model_config = SettingsConfigDict(env_file=str(ENV_PATH), env_file_encoding="utf-8")
 

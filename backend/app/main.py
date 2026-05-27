@@ -5,6 +5,7 @@ from app.db.migrations import ensure_runtime_schema
 from app.db.seed import seed_database
 from app.db.session import Base, SessionLocal, engine
 from app.routes import boards, cards, labels, lists, users
+from app.services.email_poller import start_email_poller
 from app.utils.config import settings
 
 
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
                 seed_database(db)
             finally:
                 db.close()
+        start_email_poller()
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
